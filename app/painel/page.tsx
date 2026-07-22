@@ -215,11 +215,15 @@ function TabEstoque() {
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
   const [ocultarZerados, setOcultarZerados] = useState(true);
+  const [detalhes, setDetalhes] = useState<Produto | null>(null);
   const [editando, setEditando] = useState<Produto | null>(null);
-  const [reporAberto, setReporAberto] = useState(false);
-  const [buscaRepor, setBuscaRepor] = useState("");
-  const [produtoRepor, setProdutoRepor] = useState<Produto | null>(null);
-  const [qtdRepor, setQtdRepor] = useState(1);
+  const [ajuste, setAjuste] = useState<Produto | null>(null);
+  const [ajusteValor, setAjusteValor] = useState(0);
+  const [entradaAberta, setEntradaAberta] = useState(false);
+  const [buscaEntrada, setBuscaEntrada] = useState("");
+  const [itensEntrada, setItensEntrada] = useState<
+    { produto: Produto; quantidade: number }[]
+  >([]);
 
   useEffect(() => {
     getProdutos()
@@ -239,11 +243,11 @@ function TabEstoque() {
     );
   }, [produtos, busca, ocultarZerados]);
 
-  const produtosRepor = useMemo(() => {
-    const termo = buscaRepor.trim().toLowerCase();
+  const resultadosEntrada = useMemo(() => {
+    const termo = buscaEntrada.trim().toLowerCase();
     if (!termo) return produtos;
     return produtos.filter((p) => p.nome.toLowerCase().includes(termo));
-  }, [produtos, buscaRepor]);
+  }, [produtos, buscaEntrada]);
 
   const totalUnidades = produtos.reduce((s, p) => s + p.estoque, 0);
   const valorEstoque = produtos.reduce((s, p) => s + p.estoque * p.preco, 0);
@@ -253,21 +257,72 @@ function TabEstoque() {
   );
   const estoqueBaixo = produtos.filter((p) => p.estoque <= p.estoqueMinimo).length;
 
-  async function alterarEstoque(id: string, delta: number) {
-    setProdutos(await ajustarEstoque(id, delta));
+  function statusDe(p: Produto) {
+    return p.estoque === 0
+      ? { label: "Esgotado", cls: "badge-low" }
+      : p.estoque <= p.estoqueMinimo
+      ? { label: "Baixo", cls: "badge-warn" }
+      : { label: "Em estoque", cls: "badge-ok" };
   }
 
-  function fecharRepor() {
-    setReporAberto(false);
-    setProdutoRepor(null);
-    setBuscaRepor("");
-    setQtdRepor(1);
+  function abrirEdicao(p: Produto) {
+    setEditando({ ...p });
+    setDetalhes(null);
   }
 
-  async function confirmarReposicao() {
-    if (!produtoRepor || qtdRepor <= 0) return;
-    setProdutos(await ajustarEstoque(produtoRepor.id, qtdRepor));
-    fecharRepor();
+  function abrirAjuste(p: Produto) {
+    setAjuste(p);
+    setAjusteValor(p.estoque);
+    setDetalhes(null);
+  }
+
+  async function confirmarAjuste() {
+    if (!ajuste) return;
+    const delta = ajusteValor - ajuste.estoque;
+    if (delta !== 0) {
+      setProdutos(await ajustarEstoque(ajuste.id, delta));
+    }
+    setAjuste(null);
+  }
+
+  function fecharEntrada() {
+    setEntradaAberta(false);
+    setBuscaEntrada("");
+    setItensEntrada([]);
+  }
+
+  function adicionarItemEntrada(p: Produto) {
+    setItensEntrada((itens) => {
+      const existente = itens.find((i) => i.produto.id === p.id);
+      if (existente) {
+        return itens.map((i) =>
+          i.produto.id === p.id ? { ...i, quantidade: i.quantidade + 1 } : i
+        );
+      }
+      return [...itens, { produto: p, quantidade: 1 }];
+    });
+  }
+
+  function atualizarQtdEntrada(id: string, quantidade: number) {
+    setItensEntrada((itens) =>
+      itens.map((i) =>
+        i.produto.id === id ? { ...i, quantidade: Math.max(1, quantidade) } : i
+      )
+    );
+  }
+
+  function removerItemEntrada(id: string) {
+    setItensEntrada((itens) => itens.filter((i) => i.produto.id !== id));
+  }
+
+  async function confirmarEntrada() {
+    if (itensEntrada.length === 0) return;
+    let atualizados = produtos;
+    for (const item of itensEntrada) {
+      atualizados = await ajustarEstoque(item.produto.id, item.quantidade);
+    }
+    setProdutos(atualizados);
+    fecharEntrada();
   }
 
   if (carregando) {
@@ -309,9 +364,9 @@ function TabEstoque() {
       <button
         className="btn btn-primary btn-block"
         style={{ marginBottom: 20 }}
-        onClick={() => setReporAberto(true)}
+        onClick={() => setEntradaAberta(true)}
       >
-        + Repor estoque
+        + Entrada de estoque
       </button>
 
       <div className="panel-card">
@@ -351,67 +406,35 @@ function TabEstoque() {
             </p>
           </div>
         ) : (
-          <div className="list">
+          <div className="stock-grid">
             {filtrados.map((p) => {
-              const status =
-                p.estoque === 0
-                  ? { label: "Esgotado", cls: "badge-low" }
-                  : p.estoque <= p.estoqueMinimo
-                  ? { label: "Baixo", cls: "badge-warn" }
-                  : { label: "Em estoque", cls: "badge-ok" };
+              const status = statusDe(p);
               return (
                 <div
                   key={p.id}
-                  className="row-card"
-                  style={{ flexDirection: "column", alignItems: "stretch" }}
+                  className="stock-card"
+                  onClick={() => setDetalhes(p)}
                 >
-                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <div className="stock-card-media">
                     {p.imagem ? (
-                      <img src={p.imagem} alt={p.nome} className="row-card-media" />
+                      <img src={p.imagem} alt={p.nome} />
                     ) : (
-                      <div className="row-card-media-placeholder">
+                      <span className="stock-card-placeholder">
                         {p.nome.slice(0, 1).toUpperCase()}
-                      </div>
-                    )}
-                    <div className="row-card-body">
-                      <div className="row-card-title">{p.nome}</div>
-                      <div className="row-card-sub">
-                        {p.familiaOlfativa || "Sem categoria"}
-                      </div>
-                    </div>
-                    <div className="row-card-trail">
-                      <div>{currency(p.preco)}</div>
-                      <span className={"badge " + status.cls} style={{ marginTop: 4 }}>
-                        {status.label}
                       </span>
-                    </div>
+                    )}
+                    <span className={"badge stock-card-badge " + status.cls}>
+                      {status.label}
+                    </span>
                   </div>
-                  <div
-                    className="row-card-expand"
-                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
-                  >
-                    <div className="qty-control">
-                      <button onClick={() => alterarEstoque(p.id, -1)}>−</button>
-                      <span style={{ minWidth: 20, textAlign: "center" }}>{p.estoque}</span>
-                      <button onClick={() => alterarEstoque(p.id, 1)}>+</button>
+                  <div className="stock-card-body">
+                    <div className="stock-card-tag">
+                      {p.familiaOlfativa || "Perfumes"}
                     </div>
-                    <div className="row-card-actions" style={{ marginTop: 0 }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => setEditando({ ...p })}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={async () => {
-                          if (confirm("Remover este produto do catálogo?")) {
-                            setProdutos(await removeProduto(p.id));
-                          }
-                        }}
-                      >
-                        Remover
-                      </button>
+                    <div className="stock-card-title">{p.nome}</div>
+                    <div className="stock-card-footer">
+                      <span className="stock-card-price">{currency(p.preco)}</span>
+                      <span className="stock-card-qty">{p.estoque} un.</span>
                     </div>
                   </div>
                 </div>
@@ -421,108 +444,248 @@ function TabEstoque() {
         )}
       </div>
 
-      {reporAberto && (
-        <div className="sheet-overlay" onClick={fecharRepor}>
+      {detalhes && (
+        <div className="sheet-overlay" onClick={() => setDetalhes(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-header">
+              <h2>{detalhes.nome}</h2>
+              <button className="sheet-close" onClick={() => setDetalhes(null)}>
+                ×
+              </button>
+            </div>
+
+            <div className="stock-detail-media">
+              {detalhes.imagem ? (
+                <img src={detalhes.imagem} alt={detalhes.nome} />
+              ) : (
+                <span className="stock-card-placeholder">
+                  {detalhes.nome.slice(0, 1).toUpperCase()}
+                </span>
+              )}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                margin: "14px 0 10px",
+              }}
+            >
+              <span className="stock-card-tag">
+                {detalhes.familiaOlfativa || "Perfumes"}
+              </span>
+              <span className={"badge " + statusDe(detalhes).cls}>
+                {statusDe(detalhes).label}
+              </span>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                marginBottom: 12,
+              }}
+            >
+              <div style={{ fontSize: "1.3rem", fontWeight: 600, color: "var(--gold)" }}>
+                {currency(detalhes.preco)}
+              </div>
+              <div style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+                {detalhes.estoque} un. em estoque
+              </div>
+            </div>
+
+            {detalhes.descricaoCurta && (
+              <p
+                style={{
+                  color: "var(--muted)",
+                  fontSize: "0.86rem",
+                  lineHeight: 1.5,
+                  margin: "0 0 16px",
+                }}
+              >
+                {detalhes.descricaoCurta}
+              </p>
+            )}
+
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={() => abrirAjuste(detalhes)}>
+                Ajustar estoque
+              </button>
+              <button className="btn btn-ghost" onClick={() => abrirEdicao(detalhes)}>
+                Editar produto
+              </button>
+            </div>
+            <button
+              className="btn btn-danger btn-block"
+              style={{ marginTop: 8 }}
+              onClick={async () => {
+                if (confirm("Remover este produto do catálogo?")) {
+                  setProdutos(await removeProduto(detalhes.id));
+                  setDetalhes(null);
+                }
+              }}
+            >
+              Remover produto
+            </button>
+          </div>
+        </div>
+      )}
+
+      {ajuste && (
+        <div className="sheet-overlay" onClick={() => setAjuste(null)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-handle" />
-            <h2>Repor estoque</h2>
+            <h2>Ajustar estoque</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+              {ajuste.imagem ? (
+                <img src={ajuste.imagem} alt={ajuste.nome} className="row-card-media" />
+              ) : (
+                <div className="row-card-media-placeholder">
+                  {ajuste.nome.slice(0, 1).toUpperCase()}
+                </div>
+              )}
+              <div>
+                <div className="row-card-title">{ajuste.nome}</div>
+                <div className="row-card-sub">Estoque atual: {ajuste.estoque} un.</div>
+              </div>
+            </div>
 
-            {!produtoRepor ? (
-              <>
+            <div className="form-row" style={{ marginBottom: 8 }}>
+              <label>Nova quantidade em estoque</label>
+              <div className="qty-control" style={{ justifyContent: "center" }}>
+                <button onClick={() => setAjusteValor((q) => Math.max(0, q - 1))}>−</button>
                 <input
-                  className="search-input"
-                  placeholder="Digite o nome do perfume..."
-                  value={buscaRepor}
-                  onChange={(e) => setBuscaRepor(e.target.value)}
-                  autoFocus
-                  style={{ marginBottom: 12 }}
+                  type="number"
+                  inputMode="numeric"
+                  className="text-input"
+                  style={{ textAlign: "center", maxWidth: 100 }}
+                  value={ajusteValor}
+                  onChange={(e) => setAjusteValor(Math.max(0, Number(e.target.value)))}
                 />
-                <div style={{ display: "grid", gap: 6, maxHeight: 320, overflowY: "auto" }}>
-                  {produtosRepor.length === 0 ? (
-                    <div className="empty-state" style={{ padding: "20px 0" }}>
-                      Nenhum produto encontrado.
-                    </div>
-                  ) : (
-                    produtosRepor.map((p) => (
-                      <div
-                        key={p.id}
-                        className="cart-line"
-                        style={{ cursor: "pointer" }}
-                        onClick={() => setProdutoRepor(p)}
-                      >
-                        <span>{p.nome}</span>
-                        <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-                          {p.estoque} em estoque
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    marginBottom: 20,
-                  }}
-                >
-                  {produtoRepor.imagem ? (
-                    <img
-                      src={produtoRepor.imagem}
-                      alt={produtoRepor.nome}
-                      className="row-card-media"
-                    />
-                  ) : (
-                    <div className="row-card-media-placeholder">
-                      {produtoRepor.nome.slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-                  <div>
-                    <div className="row-card-title">{produtoRepor.nome}</div>
-                    <div className="row-card-sub">
-                      Estoque atual: {produtoRepor.estoque} un.
-                    </div>
-                  </div>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    style={{ marginLeft: "auto" }}
-                    onClick={() => setProdutoRepor(null)}
-                  >
-                    Trocar
-                  </button>
-                </div>
+                <button onClick={() => setAjusteValor((q) => q + 1)}>+</button>
+              </div>
+            </div>
 
-                <div className="form-row" style={{ marginBottom: 8 }}>
-                  <label>Quantidade a adicionar</label>
-                  <div className="qty-control" style={{ justifyContent: "center" }}>
-                    <button onClick={() => setQtdRepor((q) => Math.max(1, q - 1))}>−</button>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      className="text-input"
-                      style={{ textAlign: "center", maxWidth: 100 }}
-                      value={qtdRepor}
-                      onChange={(e) => setQtdRepor(Math.max(1, Number(e.target.value)))}
-                    />
-                    <button onClick={() => setQtdRepor((q) => q + 1)}>+</button>
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={() => setAjuste(null)}>
+                Cancelar
+              </button>
+              <button className="btn btn-primary" onClick={confirmarAjuste}>
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {entradaAberta && (
+        <div className="sheet-overlay" onClick={fecharEntrada}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <h2>Entrada de estoque</h2>
+
+            <input
+              className="search-input"
+              placeholder="Digite o nome do perfume..."
+              value={buscaEntrada}
+              onChange={(e) => setBuscaEntrada(e.target.value)}
+              style={{ marginBottom: 12 }}
+            />
+            <div
+              style={{
+                display: "grid",
+                gap: 6,
+                maxHeight: 200,
+                overflowY: "auto",
+                marginBottom: 16,
+              }}
+            >
+              {resultadosEntrada.length === 0 ? (
+                <div className="empty-state" style={{ padding: "20px 0" }}>
+                  Nenhum produto encontrado.
+                </div>
+              ) : (
+                resultadosEntrada.map((p) => (
+                  <div
+                    key={p.id}
+                    className="cart-line"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => adicionarItemEntrada(p)}
+                  >
+                    <span>{p.nome}</span>
+                    <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+                      {p.estoque} em estoque
+                    </span>
                   </div>
+                ))
+              )}
+            </div>
+
+            {itensEntrada.length > 0 && (
+              <>
+                <div className="panel-title" style={{ fontSize: "0.85rem" }}>
+                  Produtos nesta entrada ({itensEntrada.length})
+                </div>
+                <div style={{ display: "grid", gap: 8, marginBottom: 8 }}>
+                  {itensEntrada.map((item) => (
+                    <div
+                      key={item.produto.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 10,
+                        paddingBottom: 8,
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      <span style={{ flex: 1, fontSize: "0.86rem" }}>
+                        {item.produto.nome}
+                      </span>
+                      <div className="qty-control">
+                        <button
+                          onClick={() =>
+                            atualizarQtdEntrada(item.produto.id, item.quantidade - 1)
+                          }
+                        >
+                          −
+                        </button>
+                        <span style={{ minWidth: 20, textAlign: "center" }}>
+                          {item.quantidade}
+                        </span>
+                        <button
+                          onClick={() =>
+                            atualizarQtdEntrada(item.produto.id, item.quantidade + 1)
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+                      <button
+                        className="btn btn-ghost btn-icon"
+                        onClick={() => removerItemEntrada(item.produto.id)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </>
             )}
 
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={fecharRepor}>
+              <button className="btn btn-ghost" onClick={fecharEntrada}>
                 Cancelar
               </button>
               <button
                 className="btn btn-primary"
-                disabled={!produtoRepor}
-                onClick={confirmarReposicao}
+                disabled={itensEntrada.length === 0}
+                onClick={confirmarEntrada}
               >
-                Adicionar {produtoRepor ? qtdRepor : ""} un.
+                Confirmar entrada (
+                {itensEntrada.reduce((s, i) => s + i.quantidade, 0)} un.)
               </button>
             </div>
           </div>
