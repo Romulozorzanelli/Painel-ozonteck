@@ -813,11 +813,12 @@ function TabEstoque() {
 
 /* ---------------------------- Clientes ---------------------------- */
 
-function TabClientes() {
+function TabClientes({ onNovaVenda }: { onNovaVenda: (clienteId: string) => void }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
+  const [detalhes, setDetalhes] = useState<Cliente | null>(null);
   const [editando, setEditando] = useState<Cliente | null>(null);
 
   useEffect(() => {
@@ -901,38 +902,119 @@ function TabClientes() {
               <div
                 key={c.id}
                 className="row-card"
-                style={{ flexDirection: "column", alignItems: "stretch" }}
+                style={{ cursor: "pointer" }}
+                onClick={() => setDetalhes(c)}
               >
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <div className="row-card-media-placeholder">
-                    {c.nome.slice(0, 1).toUpperCase() || "?"}
-                  </div>
-                  <div className="row-card-body">
-                    <div className="row-card-title">{c.nome}</div>
-                    <div className="row-card-sub">{c.telefone || c.origem || "—"}</div>
-                  </div>
-                  <div className="row-card-trail">{currency(totalGasto(c.id))}</div>
+                <div className="row-card-media-placeholder">
+                  {c.nome.slice(0, 1).toUpperCase() || "?"}
                 </div>
-                <div className="row-card-expand row-card-actions">
-                  <button className="btn btn-ghost btn-sm" onClick={() => setEditando({ ...c })}>
-                    Editar
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={async () => {
-                      if (confirm("Remover este cliente?")) {
-                        setClientes(await removeCliente(c.id));
-                      }
-                    }}
-                  >
-                    Remover
-                  </button>
+                <div className="row-card-body">
+                  <div className="row-card-title">{c.nome}</div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {detalhes && (
+        <div className="sheet-overlay" onClick={() => setDetalhes(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-header">
+              <h2>{detalhes.nome}</h2>
+              <button className="sheet-close" onClick={() => setDetalhes(null)}>
+                ×
+              </button>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              {detalhes.telefone && (
+                <div className="cart-line">
+                  <span style={{ color: "var(--muted)" }}>Telefone</span>
+                  <span>{detalhes.telefone}</span>
+                </div>
+              )}
+              {detalhes.email && (
+                <div className="cart-line">
+                  <span style={{ color: "var(--muted)" }}>E-mail</span>
+                  <span>{detalhes.email}</span>
+                </div>
+              )}
+              <div className="cart-line">
+                <span style={{ color: "var(--muted)" }}>Origem</span>
+                <span>{detalhes.origem || "—"}</span>
+              </div>
+              {detalhes.aniversarioDia && detalhes.aniversarioMes && (
+                <div className="cart-line">
+                  <span style={{ color: "var(--muted)" }}>Aniversário</span>
+                  <span>
+                    {detalhes.aniversarioDia}/{detalhes.aniversarioMes}
+                  </span>
+                </div>
+              )}
+              {detalhes.proximoFollowup && (
+                <div className="cart-line">
+                  <span style={{ color: "var(--muted)" }}>Próximo follow-up</span>
+                  <span>
+                    {new Date(detalhes.proximoFollowup + "T00:00:00").toLocaleDateString(
+                      "pt-BR"
+                    )}
+                  </span>
+                </div>
+              )}
+              <div className="cart-line">
+                <span style={{ color: "var(--muted)" }}>Total gasto</span>
+                <span className="value positive">{currency(totalGasto(detalhes.id))}</span>
+              </div>
+              {detalhes.observacoes && (
+                <p
+                  style={{
+                    color: "var(--muted)",
+                    fontSize: "0.86rem",
+                    lineHeight: 1.5,
+                    marginTop: 10,
+                  }}
+                >
+                  {detalhes.observacoes}
+                </p>
+              )}
+            </div>
+
+            <button
+              className="btn btn-primary btn-block"
+              style={{ marginBottom: 8 }}
+              onClick={() => {
+                onNovaVenda(detalhes.id);
+                setDetalhes(null);
+              }}
+            >
+              + Nova venda
+            </button>
+            <div className="form-actions" style={{ marginTop: 0 }}>
+              <button
+                className="btn btn-ghost"
+                onClick={() => {
+                  setEditando({ ...detalhes });
+                  setDetalhes(null);
+                }}
+              >
+                Editar
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={async () => {
+                  if (confirm("Remover este cliente?")) {
+                    setClientes(await removeCliente(detalhes.id));
+                    setDetalhes(null);
+                  }
+                }}
+              >
+                Remover
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editando && (
         <div className="sheet-overlay" onClick={() => setEditando(null)}>
@@ -1083,7 +1165,13 @@ function TabClientes() {
 
 /* ---------------------------- Vendas ---------------------------- */
 
-function TabVendas() {
+function TabVendas({
+  clientePreSelecionado,
+  aoConsumirPreSelecao,
+}: {
+  clientePreSelecionado?: string | null;
+  aoConsumirPreSelecao?: () => void;
+}) {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [vendas, setVendas] = useState<Venda[]>([]);
@@ -1095,6 +1183,7 @@ function TabVendas() {
   const [carrinho, setCarrinho] = useState<ItemVenda[]>([]);
   const [sheetAberto, setSheetAberto] = useState(false);
   const [vendaEditando, setVendaEditando] = useState<Venda | null>(null);
+  const [detalhes, setDetalhes] = useState<Venda | null>(null);
   const [salvando, setSalvando] = useState(false);
 
   async function recarregar() {
@@ -1107,6 +1196,19 @@ function TabVendas() {
   useEffect(() => {
     recarregar().finally(() => setCarregando(false));
   }, []);
+
+  useEffect(() => {
+    if (clientePreSelecionado) {
+      setVendaEditando(null);
+      setCarrinho([]);
+      setClienteSelecionado(clientePreSelecionado);
+      setClienteAvulso("");
+      setFormaPagamento("Pix");
+      setSheetAberto(true);
+      aoConsumirPreSelecao?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientePreSelecionado]);
 
   // Ao editar uma venda ativa (concluída), os itens que já estavam nela
   // ainda não foram "devolvidos" ao estoque na tela — então a quantidade
@@ -1223,77 +1325,105 @@ function TabVendas() {
               <div
                 key={v.id}
                 className="row-card"
-                style={{ flexDirection: "column", alignItems: "stretch" }}
+                style={{ cursor: "pointer", justifyContent: "space-between" }}
+                onClick={() => setDetalhes(v)}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                  <div className="row-card-body">
-                    <div className="row-card-title">{v.clienteNome}</div>
-                    <div className="row-card-sub">
-                      {v.itens.map((i) => `${i.quantidade}x ${i.nome}`).join(", ")}
-                    </div>
-                  </div>
-                  <div className="row-card-trail">
-                    <div>{currency(v.total)}</div>
-                    <span
-                      className={"badge " + (v.status === "concluida" ? "badge-ok" : "badge-low")}
-                      style={{ marginTop: 4 }}
-                    >
-                      {v.status === "concluida" ? "Concluída" : "Cancelada"}
-                    </span>
-                  </div>
+                <div className="row-card-body">
+                  <div className="row-card-title">{v.clienteNome}</div>
                 </div>
-                <div
-                  className="row-card-expand"
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                >
-                  <span style={{ fontSize: "0.76rem", color: "var(--muted)" }}>
-                    {new Date(v.data).toLocaleString("pt-BR")} · {v.formaPagamento}
-                  </span>
-                  {v.status === "concluida" ? (
-                    <div className="row-card-actions" style={{ marginTop: 0 }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => abrirEdicaoVenda(v)}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={async () => {
-                          if (confirm("Cancelar esta venda? O estoque será devolvido.")) {
-                            await cancelarVenda(v.id);
-                            await recarregar();
-                          }
-                        }}
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="row-card-actions" style={{ marginTop: 0 }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => abrirEdicaoVenda(v)}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={async () => {
-                          await reativarVenda(v.id);
-                          await recarregar();
-                        }}
-                      >
-                        Reativar
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <div className="row-card-trail">{currency(v.total)}</div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {detalhes && (
+        <div className="sheet-overlay" onClick={() => setDetalhes(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-header">
+              <h2>{detalhes.clienteNome}</h2>
+              <button className="sheet-close" onClick={() => setDetalhes(null)}>
+                ×
+              </button>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "4px 0 14px" }}>
+              <span
+                className={"badge " + (detalhes.status === "concluida" ? "badge-ok" : "badge-low")}
+              >
+                {detalhes.status === "concluida" ? "Concluída" : "Cancelada"}
+              </span>
+              <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+                {new Date(detalhes.data).toLocaleString("pt-BR")} · {detalhes.formaPagamento}
+              </span>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              {detalhes.itens.map((i) => (
+                <div key={i.produtoId} className="cart-line">
+                  <span>
+                    {i.quantidade}x {i.nome}
+                  </span>
+                  <span>{currency(i.quantidade * i.precoUnitario)}</span>
+                </div>
+              ))}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginTop: 10,
+                  paddingTop: 10,
+                  borderTop: "1px solid var(--border)",
+                  fontWeight: 700,
+                }}
+              >
+                <span>Total</span>
+                <span className="value accent" style={{ fontSize: "1.05rem" }}>
+                  {currency(detalhes.total)}
+                </span>
+              </div>
+            </div>
+
+            <div className="form-actions" style={{ marginTop: 0 }}>
+              <button
+                className="btn btn-ghost"
+                onClick={() => {
+                  abrirEdicaoVenda(detalhes);
+                  setDetalhes(null);
+                }}
+              >
+                Editar
+              </button>
+              {detalhes.status === "concluida" ? (
+                <button
+                  className="btn btn-danger"
+                  onClick={async () => {
+                    if (confirm("Cancelar esta venda? O estoque será devolvido.")) {
+                      await cancelarVenda(detalhes.id);
+                      await recarregar();
+                      setDetalhes(null);
+                    }
+                  }}
+                >
+                  Cancelar
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    await reativarVenda(detalhes.id);
+                    await recarregar();
+                    setDetalhes(null);
+                  }}
+                >
+                  Reativar
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {sheetAberto && (
         <div className="sheet-overlay" onClick={fecharSheet}>
@@ -2048,6 +2178,7 @@ const TABS = [
 
 export default function PainelPage() {
   const [aba, setAba] = useState<(typeof TABS)[number]["id"]>("inicio");
+  const [vendaClienteId, setVendaClienteId] = useState<string | null>(null);
   const router = useRouter();
   const atual = TABS.find((t) => t.id === aba)!;
 
@@ -2102,8 +2233,20 @@ export default function PainelPage() {
       <main className="main">
         {aba === "inicio" && <TabInicio />}
         {aba === "estoque" && <TabEstoque />}
-        {aba === "clientes" && <TabClientes />}
-        {aba === "vendas" && <TabVendas />}
+        {aba === "clientes" && (
+          <TabClientes
+            onNovaVenda={(clienteId) => {
+              setVendaClienteId(clienteId);
+              setAba("vendas");
+            }}
+          />
+        )}
+        {aba === "vendas" && (
+          <TabVendas
+            clientePreSelecionado={vendaClienteId}
+            aoConsumirPreSelecao={() => setVendaClienteId(null)}
+          />
+        )}
         {aba === "financeiro" && <TabFinanceiro />}
         {aba === "perfil" && <TabPerfil />}
       </main>
