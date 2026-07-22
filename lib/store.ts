@@ -34,6 +34,8 @@ export type Cliente = {
   email: string;
   origem: string;
   observacoes: string;
+  dataNascimento: string | null;
+  proximoFollowup: string | null;
   criadoEm: string;
 };
 
@@ -90,6 +92,8 @@ function clienteFromRow(row: any): Cliente {
     email: row.email,
     origem: row.origem,
     observacoes: row.observacoes,
+    dataNascimento: row.data_nascimento,
+    proximoFollowup: row.proximo_followup,
     criadoEm: row.criado_em,
   };
 }
@@ -245,6 +249,8 @@ export async function upsertCliente(cliente: Cliente): Promise<Cliente[]> {
         email: cliente.email,
         origem: cliente.origem,
         observacoes: cliente.observacoes,
+        data_nascimento: cliente.dataNascimento || null,
+        proximo_followup: cliente.proximoFollowup || null,
       })
       .eq("id", cliente.id);
   } else {
@@ -255,6 +261,8 @@ export async function upsertCliente(cliente: Cliente): Promise<Cliente[]> {
       email: cliente.email,
       origem: cliente.origem,
       observacoes: cliente.observacoes,
+      data_nascimento: cliente.dataNascimento || null,
+      proximo_followup: cliente.proximoFollowup || null,
     });
   }
 
