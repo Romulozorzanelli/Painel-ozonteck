@@ -1182,6 +1182,7 @@ function TabVendas({
   const [formaPagamento, setFormaPagamento] = useState("Pix");
   const [buscaProduto, setBuscaProduto] = useState("");
   const [carrinho, setCarrinho] = useState<ItemVenda[]>([]);
+  const [revendedor, setRevendedor] = useState(false);
   const [sheetAberto, setSheetAberto] = useState(false);
   const [vendaEditando, setVendaEditando] = useState<Venda | null>(null);
   const [detalhes, setDetalhes] = useState<Venda | null>(null);
@@ -1205,6 +1206,7 @@ function TabVendas({
       setClienteSelecionado(clientePreSelecionado);
       setClienteAvulso("");
       setFormaPagamento("Pix");
+      setRevendedor(false);
       setSheetAberto(true);
       aoConsumirPreSelecao?.();
     }
@@ -1242,12 +1244,24 @@ function TabVendas({
     );
   }
 
+  function alternarRevendedor(novoValor: boolean) {
+    setRevendedor(novoValor);
+    setCarrinho((itens) =>
+      itens.map((item) => {
+        const produto = produtos.find((p) => p.id === item.produtoId);
+        if (!produto) return item;
+        return { ...item, precoUnitario: novoValor ? produto.custo : produto.preco };
+      })
+    );
+  }
+
   function abrirNovaVenda() {
     setVendaEditando(null);
     setCarrinho([]);
     setClienteSelecionado("");
     setClienteAvulso("");
     setFormaPagamento("Pix");
+    setRevendedor(false);
     setSheetAberto(true);
   }
 
@@ -1257,6 +1271,7 @@ function TabVendas({
     setClienteSelecionado(v.clienteId ?? "");
     setClienteAvulso(v.clienteId ? "" : v.clienteNome);
     setFormaPagamento(v.formaPagamento);
+    setRevendedor(v.tipoVenda === "revendedor");
     setSheetAberto(true);
   }
 
@@ -1266,6 +1281,7 @@ function TabVendas({
     setCarrinho([]);
     setClienteSelecionado("");
     setClienteAvulso("");
+    setRevendedor(false);
   }
 
   const totalCarrinho = carrinho.reduce(
@@ -1355,6 +1371,9 @@ function TabVendas({
               >
                 {detalhes.status === "concluida" ? "Concluída" : "Cancelada"}
               </span>
+              {detalhes.tipoVenda === "revendedor" && (
+                <span className="badge badge-warn">Revendedor</span>
+              )}
               <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
                 {new Date(detalhes.data).toLocaleString("pt-BR")} · {detalhes.formaPagamento}
               </span>
@@ -1449,6 +1468,30 @@ function TabVendas({
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-handle" />
             <h2>{vendaEditando ? "Editar venda" : "Nova venda"}</h2>
+
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 14,
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid var(--border)",
+                background: revendedor ? "var(--gold-soft)" : "transparent",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={revendedor}
+                onChange={(e) => alternarRevendedor(e.target.checked)}
+              />
+              <span style={{ fontSize: "0.86rem" }}>
+                Venda para revendedor — usa o valor de custo
+              </span>
+            </label>
+
             <input
               className="search-input"
               placeholder="Buscar produto..."
@@ -1467,6 +1510,7 @@ function TabVendas({
             >
               {produtosFiltrados.map((p) => {
                 const disponivel = estoqueDisponivel(p);
+                const precoUsar = revendedor ? p.custo : p.preco;
                 return (
                   <div
                     key={p.id}
@@ -1482,12 +1526,14 @@ function TabVendas({
                         if (existente) {
                           if (existente.quantidade >= disponivel) return itens;
                           return itens.map((i) =>
-                            i.produtoId === p.id ? { ...i, quantidade: i.quantidade + 1 } : i
+                            i.produtoId === p.id
+                              ? { ...i, quantidade: i.quantidade + 1, precoUnitario: precoUsar }
+                              : i
                           );
                         }
                         return [
                           ...itens,
-                          { produtoId: p.id, nome: p.nome, quantidade: 1, precoUnitario: p.preco },
+                          { produtoId: p.id, nome: p.nome, quantidade: 1, precoUnitario: precoUsar },
                         ];
                       });
                     }}
@@ -1498,7 +1544,7 @@ function TabVendas({
                         ({disponivel} un.)
                       </span>
                     </span>
-                    <span>{currency(p.preco)}</span>
+                    <span>{currency(precoUsar)}</span>
                   </div>
                 );
               })}
@@ -1591,6 +1637,7 @@ function TabVendas({
                     clienteNome: cliente ? cliente.nome : clienteAvulso.trim() || "Cliente avulso",
                     itens: carrinho,
                     formaPagamento,
+                    tipoVenda: revendedor ? ("revendedor" as const) : ("cliente" as const),
                   };
                   if (vendaEditando) {
                     await atualizarVenda(vendaEditando.id, dadosVenda);
