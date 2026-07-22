@@ -327,13 +327,17 @@ export async function registrarVenda(input: {
     await ajustarEstoque(item.produtoId, -item.quantidade);
   }
 
-  await addLancamento({
-    tipo: "entrada",
-    categoria: "Venda",
-    descricao: `Venda para ${input.clienteNome || "cliente avulso"}`,
-    valor: total,
-    vendaId: venda.id,
-  });
+  // "A receber" ainda não é dinheiro em caixa — só lança a entrada quando
+  // for efetivamente recebido (via receberVenda).
+  if (input.formaPagamento !== "A receber") {
+    await addLancamento({
+      tipo: "entrada",
+      categoria: "Venda",
+      descricao: `Venda para ${input.clienteNome || "cliente avulso"}`,
+      valor: total,
+      vendaId: venda.id,
+    });
+  }
 }
 
 export async function atualizarVenda(
@@ -400,20 +404,23 @@ export async function atualizarVenda(
 
   if (eraCancelada) {
     // Editar uma venda cancelada a reativa: remove o estorno gerado no
-    // cancelamento e lança a entrada novamente com o valor atualizado.
+    // cancelamento e lança a entrada novamente com o valor atualizado
+    // (a menos que a nova forma de pagamento seja "A receber").
     await supabase
       .from("lancamentos")
       .delete()
       .eq("venda_id", vendaId)
       .eq("categoria", "Estorno");
 
-    await addLancamento({
-      tipo: "entrada",
-      categoria: "Venda",
-      descricao: `Venda para ${input.clienteNome || "cliente avulso"}`,
-      valor: total,
-      vendaId,
-    });
+    if (input.formaPagamento !== "A receber") {
+      await addLancamento({
+        tipo: "entrada",
+        categoria: "Venda",
+        descricao: `Venda para ${input.clienteNome || "cliente avulso"}`,
+        valor: total,
+        vendaId,
+      });
+    }
   } else {
     const { data: lancamento } = await supabase
       .from("lancamentos")
@@ -422,7 +429,12 @@ export async function atualizarVenda(
       .eq("tipo", "entrada")
       .maybeSingle();
 
-    if (lancamento) {
+    if (input.formaPagamento === "A receber") {
+      // Virou "A receber": remove a entrada que já tinha sido lançada.
+      if (lancamento) {
+        await supabase.from("lancamentos").delete().eq("id", lancamento.id);
+      }
+    } else if (lancamento) {
       await supabase
         .from("lancamentos")
         .update({
@@ -430,6 +442,16 @@ export async function atualizarVenda(
           descricao: `Venda para ${input.clienteNome || "cliente avulso"}`,
         })
         .eq("id", lancamento.id);
+    } else {
+      // Antes era "A receber" (sem entrada lançada) e agora tem forma de
+      // pagamento real: lança a entrada pela primeira vez.
+      await addLancamento({
+        tipo: "entrada",
+        categoria: "Venda",
+        descricao: `Venda para ${input.clienteNome || "cliente avulso"}`,
+        valor: total,
+        vendaId,
+      });
     }
   }
 }
@@ -474,14 +496,36 @@ export async function cancelarVenda(id: string) {
       await ajustarEstoque(item.produto_id, item.quantidade);
     }
 
+    // Só estorna se realmente tinha entrada lançada (não era "A receber").
+    if (venda.forma_pagamento !== "A receber") {
+      await addLancamento({
+        tipo: "saida",
+        categoria: "Estorno",
+        descricao: `Cancelamento da venda de ${venda.cliente_nome || "cliente avulso"}`,
+        valor: Number(venda.total),
+        vendaId: venda.id,
+      });
+    }
+  }
+}
+
+export async function receberVenda(id: string, formaPagamento: string): Promise<Venda[]> {
+  const supabase = createClient();
+  const { data: venda } = await supabase.from("vendas").select("*").eq("id", id).single();
+
+  if (venda && venda.forma_pagamento === "A receber") {
+    await supabase.from("vendas").update({ forma_pagamento: formaPagamento }).eq("id", id);
+
     await addLancamento({
-      tipo: "saida",
-      categoria: "Estorno",
-      descricao: `Cancelamento da venda de ${venda.cliente_nome || "cliente avulso"}`,
+      tipo: "entrada",
+      categoria: "Venda",
+      descricao: `Venda para ${venda.cliente_nome || "cliente avulso"}`,
       valor: Number(venda.total),
-      vendaId: venda.id,
+      vendaId: id,
     });
   }
+
+  return getVendas();
 }
 
 export async function excluirVenda(id: string): Promise<Venda[]> {
