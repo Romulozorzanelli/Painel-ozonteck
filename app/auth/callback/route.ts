@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieMethodsServer } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/config";
 
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
               return { name: name.trim(), value: rest.join("=") };
             }) ?? [];
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: Parameters<CookieMethodsServer["setAll"]>[0]) {
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           );
