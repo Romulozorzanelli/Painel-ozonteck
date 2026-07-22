@@ -879,7 +879,8 @@ function TabClientes() {
                 email: "",
                 origem: "Indicação",
                 observacoes: "",
-                dataNascimento: null,
+                aniversarioDia: null,
+                aniversarioMes: null,
                 proximoFollowup: null,
                 criadoEm: new Date().toISOString(),
               })
@@ -994,15 +995,56 @@ function TabClientes() {
                 />
               </div>
               <div className="form-row">
-                <label>Data de nascimento</label>
-                <input
-                  type="date"
-                  className="text-input"
-                  value={editando.dataNascimento || ""}
-                  onChange={(e) =>
-                    setEditando({ ...editando, dataNascimento: e.target.value || null })
-                  }
-                />
+                <label>Aniversário (dia e mês)</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <select
+                    className="select-input"
+                    value={editando.aniversarioDia ?? ""}
+                    onChange={(e) =>
+                      setEditando({
+                        ...editando,
+                        aniversarioDia: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
+                  >
+                    <option value="">Dia</option>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="select-input"
+                    value={editando.aniversarioMes ?? ""}
+                    onChange={(e) =>
+                      setEditando({
+                        ...editando,
+                        aniversarioMes: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
+                  >
+                    <option value="">Mês</option>
+                    {[
+                      "Janeiro",
+                      "Fevereiro",
+                      "Março",
+                      "Abril",
+                      "Maio",
+                      "Junho",
+                      "Julho",
+                      "Agosto",
+                      "Setembro",
+                      "Outubro",
+                      "Novembro",
+                      "Dezembro",
+                    ].map((mes, i) => (
+                      <option key={mes} value={i + 1}>
+                        {mes}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="form-row">
                 <label>Próximo follow-up</label>
