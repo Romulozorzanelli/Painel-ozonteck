@@ -155,7 +155,7 @@ async function seedProdutosIniciais() {
     ativo: true,
   }));
 
-  await supabase.from("produtos").upsert(rows, { onConflict: "id" });
+  await supabase.from("produtos").upsert(rows, { onConflict: "id,owner_id" });
 }
 
 export async function getProdutos(): Promise<Produto[]> {
