@@ -1,9 +1,23 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import PwaRegister from "./pwa-register";
 
 export const metadata: Metadata = {
   title: "Painel Ozonteck",
   description: "Sistema de controle de produtos, estoque, clientes, vendas e financeiro.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Painel Ozonteck",
+  },
 };
 
 export const viewport: Viewport = {
@@ -21,7 +35,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        {children}
+        <PwaRegister />
+      </body>
     </html>
   );
 }
