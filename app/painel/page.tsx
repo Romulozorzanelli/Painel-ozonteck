@@ -1,0 +1,1485 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import {
+  type Produto,
+  type Cliente,
+  type Venda,
+  type Lancamento,
+  type ItemVenda,
+  getProdutos,
+  upsertProduto,
+  removeProduto,
+  ajustarEstoque,
+  getClientes,
+  upsertCliente,
+  removeCliente,
+  getVendas,
+  registrarVenda,
+  atualizarVenda,
+  reativarVenda,
+  cancelarVenda,
+  getFinanceiro,
+  addLancamento,
+  removerLancamento,
+} from "@/lib/store";
+
+const currency = (v: number) =>
+  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+/* ---------------------------- Ícones ---------------------------- */
+
+function IconEstoque({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 8.5 12 4 3 8.5l9 4.5 9-4.5Z" />
+      <path d="M3 8.5V16l9 4.5 9-4.5V8.5" />
+      <path d="M12 13v7.5" />
+    </svg>
+  );
+}
+function IconClientes({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="8" r="3.6" />
+      <path d="M4.5 20c1.2-3.6 4.2-5.5 7.5-5.5s6.3 1.9 7.5 5.5" />
+    </svg>
+  );
+}
+function IconVendas({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="9.5" cy="20" r="1.4" />
+      <circle cx="17.5" cy="20" r="1.4" />
+      <path d="M2.5 3.5h2.2l2.4 12.2a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6l1.5-7.9H6.1" />
+    </svg>
+  );
+}
+function IconFinanceiro({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h11.5a1 1 0 0 1 1 1v2.2" />
+      <path d="M3.5 7.5v10A2.5 2.5 0 0 0 6 20h13a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1H6a2.5 2.5 0 0 1-2.5-2.5Z" />
+      <circle cx="16.3" cy="14" r="1.15" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+function IconSair({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="m16 17 5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  );
+}
+function IconInicio({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 10.5 12 3l9 7.5" />
+      <path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5" />
+    </svg>
+  );
+}
+
+/* ---------------------------- Início (Dashboard) ---------------------------- */
+
+function TabInicio() {
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [vendas, setVendas] = useState<Venda[]>([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    Promise.all([getProdutos(), getClientes(), getVendas()])
+      .then(([p, c, v]) => {
+        setProdutos(p);
+        setClientes(c);
+        setVendas(v);
+      })
+      .finally(() => setCarregando(false));
+  }, []);
+
+  if (carregando) {
+    return <div className="empty-state">Carregando painel...</div>;
+  }
+
+  const agora = new Date();
+  const vendasConcluidas = vendas.filter((v) => v.status === "concluida");
+  const vendasDoMes = vendasConcluidas.filter((v) => {
+    const d = new Date(v.data);
+    return d.getMonth() === agora.getMonth() && d.getFullYear() === agora.getFullYear();
+  });
+  const valorVendasMes = vendasDoMes.reduce((s, v) => s + v.total, 0);
+  const valorEstoque = produtos.reduce((s, p) => s + p.estoque * p.preco, 0);
+  const lucroPotencial = produtos.reduce(
+    (s, p) => s + p.estoque * (p.preco - p.custo),
+    0
+  );
+  const ticketMedio =
+    vendasConcluidas.length > 0
+      ? vendasConcluidas.reduce((s, v) => s + v.total, 0) / vendasConcluidas.length
+      : 0;
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Início</h1>
+        <p>Resumo rápido do seu negócio.</p>
+      </div>
+
+      <div className="kpi-scroll">
+        <div className="kpi-card">
+          <div className="label">Valor em estoque</div>
+          <div className="value accent">{currency(valorEstoque)}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Vendas do mês</div>
+          <div className="value positive">{currency(valorVendasMes)}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Clientes cadastrados</div>
+          <div className="value">{clientes.length}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Vendas realizadas</div>
+          <div className="value">{vendasConcluidas.length}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Ticket médio</div>
+          <div className="value">{currency(ticketMedio)}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Lucro potencial</div>
+          <div className="value positive">{currency(lucroPotencial)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------- Estoque ---------------------------- */
+
+function TabEstoque() {
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [busca, setBusca] = useState("");
+  const [ocultarZerados, setOcultarZerados] = useState(true);
+  const [editando, setEditando] = useState<Produto | null>(null);
+  const [reporAberto, setReporAberto] = useState(false);
+  const [buscaRepor, setBuscaRepor] = useState("");
+  const [produtoRepor, setProdutoRepor] = useState<Produto | null>(null);
+  const [qtdRepor, setQtdRepor] = useState(1);
+
+  useEffect(() => {
+    getProdutos()
+      .then(setProdutos)
+      .finally(() => setCarregando(false));
+  }, []);
+
+  const filtrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    let lista = produtos;
+    if (ocultarZerados) lista = lista.filter((p) => p.estoque > 0);
+    if (!termo) return lista;
+    return lista.filter(
+      (p) =>
+        p.nome.toLowerCase().includes(termo) ||
+        p.familiaOlfativa.toLowerCase().includes(termo)
+    );
+  }, [produtos, busca, ocultarZerados]);
+
+  const produtosRepor = useMemo(() => {
+    const termo = buscaRepor.trim().toLowerCase();
+    if (!termo) return produtos;
+    return produtos.filter((p) => p.nome.toLowerCase().includes(termo));
+  }, [produtos, buscaRepor]);
+
+  const totalUnidades = produtos.reduce((s, p) => s + p.estoque, 0);
+  const valorEstoque = produtos.reduce((s, p) => s + p.estoque * p.preco, 0);
+  const lucroPotencial = produtos.reduce(
+    (s, p) => s + p.estoque * (p.preco - p.custo),
+    0
+  );
+  const estoqueBaixo = produtos.filter((p) => p.estoque <= p.estoqueMinimo).length;
+
+  async function alterarEstoque(id: string, delta: number) {
+    setProdutos(await ajustarEstoque(id, delta));
+  }
+
+  function fecharRepor() {
+    setReporAberto(false);
+    setProdutoRepor(null);
+    setBuscaRepor("");
+    setQtdRepor(1);
+  }
+
+  async function confirmarReposicao() {
+    if (!produtoRepor || qtdRepor <= 0) return;
+    setProdutos(await ajustarEstoque(produtoRepor.id, qtdRepor));
+    fecharRepor();
+  }
+
+  if (carregando) {
+    return <div className="empty-state">Carregando produtos...</div>;
+  }
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Estoque</h1>
+        <p>Catálogo, quantidade disponível e preço.</p>
+      </div>
+
+      <div className="kpi-scroll">
+        <div className="kpi-card">
+          <div className="label">Produtos</div>
+          <div className="value">{produtos.length}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Unidades</div>
+          <div className="value">{totalUnidades}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Valor em estoque</div>
+          <div className="value accent">{currency(valorEstoque)}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Lucro potencial</div>
+          <div className="value positive">{currency(lucroPotencial)}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Estoque baixo</div>
+          <div className={"value " + (estoqueBaixo > 0 ? "negative" : "")}>
+            {estoqueBaixo}
+          </div>
+        </div>
+      </div>
+
+      <button
+        className="btn btn-primary btn-block"
+        style={{ marginBottom: 20 }}
+        onClick={() => setReporAberto(true)}
+      >
+        + Repor estoque
+      </button>
+
+      <div className="panel-card">
+        <div className="toolbar">
+          <input
+            className="search-input"
+            placeholder="Buscar produto..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: "0.82rem",
+              color: "var(--muted)",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={ocultarZerados}
+              onChange={(e) => setOcultarZerados(e.target.checked)}
+            />
+            Ocultar itens esgotados
+          </label>
+        </div>
+
+        {filtrados.length === 0 ? (
+          <div className="empty-state">
+            <div className="title">Nenhum produto encontrado</div>
+            <p>
+              {ocultarZerados
+                ? "Todos os produtos estão esgotados, ou ajuste a busca."
+                : "Ajuste a busca."}
+            </p>
+          </div>
+        ) : (
+          <div className="list">
+            {filtrados.map((p) => {
+              const status =
+                p.estoque === 0
+                  ? { label: "Esgotado", cls: "badge-low" }
+                  : p.estoque <= p.estoqueMinimo
+                  ? { label: "Baixo", cls: "badge-warn" }
+                  : { label: "Em estoque", cls: "badge-ok" };
+              return (
+                <div
+                  key={p.id}
+                  className="row-card"
+                  style={{ flexDirection: "column", alignItems: "stretch" }}
+                >
+                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    {p.imagem ? (
+                      <img src={p.imagem} alt={p.nome} className="row-card-media" />
+                    ) : (
+                      <div className="row-card-media-placeholder">
+                        {p.nome.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="row-card-body">
+                      <div className="row-card-title">{p.nome}</div>
+                      <div className="row-card-sub">
+                        {p.familiaOlfativa || "Sem categoria"}
+                      </div>
+                    </div>
+                    <div className="row-card-trail">
+                      <div>{currency(p.preco)}</div>
+                      <span className={"badge " + status.cls} style={{ marginTop: 4 }}>
+                        {status.label}
+                      </span>
+                    </div>
+                  </div>
+                  <div
+                    className="row-card-expand"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                  >
+                    <div className="qty-control">
+                      <button onClick={() => alterarEstoque(p.id, -1)}>−</button>
+                      <span style={{ minWidth: 20, textAlign: "center" }}>{p.estoque}</span>
+                      <button onClick={() => alterarEstoque(p.id, 1)}>+</button>
+                    </div>
+                    <div className="row-card-actions" style={{ marginTop: 0 }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setEditando({ ...p })}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={async () => {
+                          if (confirm("Remover este produto do catálogo?")) {
+                            setProdutos(await removeProduto(p.id));
+                          }
+                        }}
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {reporAberto && (
+        <div className="sheet-overlay" onClick={fecharRepor}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <h2>Repor estoque</h2>
+
+            {!produtoRepor ? (
+              <>
+                <input
+                  className="search-input"
+                  placeholder="Digite o nome do perfume..."
+                  value={buscaRepor}
+                  onChange={(e) => setBuscaRepor(e.target.value)}
+                  autoFocus
+                  style={{ marginBottom: 12 }}
+                />
+                <div style={{ display: "grid", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+                  {produtosRepor.length === 0 ? (
+                    <div className="empty-state" style={{ padding: "20px 0" }}>
+                      Nenhum produto encontrado.
+                    </div>
+                  ) : (
+                    produtosRepor.map((p) => (
+                      <div
+                        key={p.id}
+                        className="cart-line"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => setProdutoRepor(p)}
+                      >
+                        <span>{p.nome}</span>
+                        <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+                          {p.estoque} em estoque
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    marginBottom: 20,
+                  }}
+                >
+                  {produtoRepor.imagem ? (
+                    <img
+                      src={produtoRepor.imagem}
+                      alt={produtoRepor.nome}
+                      className="row-card-media"
+                    />
+                  ) : (
+                    <div className="row-card-media-placeholder">
+                      {produtoRepor.nome.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <div className="row-card-title">{produtoRepor.nome}</div>
+                    <div className="row-card-sub">
+                      Estoque atual: {produtoRepor.estoque} un.
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ marginLeft: "auto" }}
+                    onClick={() => setProdutoRepor(null)}
+                  >
+                    Trocar
+                  </button>
+                </div>
+
+                <div className="form-row" style={{ marginBottom: 8 }}>
+                  <label>Quantidade a adicionar</label>
+                  <div className="qty-control" style={{ justifyContent: "center" }}>
+                    <button onClick={() => setQtdRepor((q) => Math.max(1, q - 1))}>−</button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      className="text-input"
+                      style={{ textAlign: "center", maxWidth: 100 }}
+                      value={qtdRepor}
+                      onChange={(e) => setQtdRepor(Math.max(1, Number(e.target.value)))}
+                    />
+                    <button onClick={() => setQtdRepor((q) => q + 1)}>+</button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={fecharRepor}>
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={!produtoRepor}
+                onClick={confirmarReposicao}
+              >
+                Adicionar {produtoRepor ? qtdRepor : ""} un.
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editando && (
+        <div className="sheet-overlay" onClick={() => setEditando(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <h2>Editar produto</h2>
+            <div className="form-grid">
+              <div className="form-row">
+                <label>Nome</label>
+                <input
+                  className="text-input"
+                  value={editando.nome}
+                  onChange={(e) => setEditando({ ...editando, nome: e.target.value })}
+                />
+              </div>
+              <div className="form-row">
+                <label>Família olfativa / categoria</label>
+                <input
+                  className="text-input"
+                  value={editando.familiaOlfativa}
+                  onChange={(e) =>
+                    setEditando({ ...editando, familiaOlfativa: e.target.value })
+                  }
+                />
+              </div>
+              <div className="form-row">
+                <label>Descrição curta</label>
+                <textarea
+                  className="textarea-input"
+                  rows={2}
+                  value={editando.descricaoCurta}
+                  onChange={(e) =>
+                    setEditando({ ...editando, descricaoCurta: e.target.value })
+                  }
+                />
+              </div>
+              <div className="form-row">
+                <label>Link da imagem (opcional)</label>
+                <input
+                  className="text-input"
+                  placeholder="https://..."
+                  value={editando.imagem || ""}
+                  onChange={(e) => setEditando({ ...editando, imagem: e.target.value })}
+                />
+              </div>
+              <div className="form-row">
+                <label>Custo (R$)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  className="text-input"
+                  value={editando.custo}
+                  onChange={(e) =>
+                    setEditando({ ...editando, custo: Number(e.target.value) })
+                  }
+                />
+              </div>
+              <div className="form-row">
+                <label>Preço de venda (R$)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  className="text-input"
+                  value={editando.preco}
+                  onChange={(e) =>
+                    setEditando({ ...editando, preco: Number(e.target.value) })
+                  }
+                />
+              </div>
+              <div className="form-row">
+                <label>Estoque atual</label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  className="text-input"
+                  value={editando.estoque}
+                  onChange={(e) =>
+                    setEditando({ ...editando, estoque: Number(e.target.value) })
+                  }
+                />
+              </div>
+              <div className="form-row">
+                <label>Estoque mínimo (alerta)</label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  className="text-input"
+                  value={editando.estoqueMinimo}
+                  onChange={(e) =>
+                    setEditando({ ...editando, estoqueMinimo: Number(e.target.value) })
+                  }
+                />
+              </div>
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={() => setEditando(null)}>
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  if (editando && editando.nome.trim()) {
+                    setProdutos(await upsertProduto(editando));
+                    setEditando(null);
+                  }
+                }}
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------- Clientes ---------------------------- */
+
+function TabClientes() {
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [vendas, setVendas] = useState<Venda[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [busca, setBusca] = useState("");
+  const [editando, setEditando] = useState<Cliente | null>(null);
+
+  useEffect(() => {
+    Promise.all([getClientes(), getVendas()])
+      .then(([c, v]) => {
+        setClientes(c);
+        setVendas(v);
+      })
+      .finally(() => setCarregando(false));
+  }, []);
+
+  const filtrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    if (!termo) return clientes;
+    return clientes.filter(
+      (c) => c.nome.toLowerCase().includes(termo) || c.telefone.includes(termo)
+    );
+  }, [clientes, busca]);
+
+  function totalGasto(clienteId: string) {
+    return vendas
+      .filter((v) => v.clienteId === clienteId && v.status === "concluida")
+      .reduce((s, v) => s + v.total, 0);
+  }
+
+  if (carregando) {
+    return <div className="empty-state">Carregando clientes...</div>;
+  }
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Clientes</h1>
+        <p>Cadastro e histórico de relacionamento.</p>
+      </div>
+
+      <div className="kpi-scroll">
+        <div className="kpi-card">
+          <div className="label">Clientes</div>
+          <div className="value">{clientes.length}</div>
+        </div>
+      </div>
+
+      <div className="panel-card">
+        <div className="toolbar">
+          <input
+            className="search-input"
+            placeholder="Buscar por nome ou telefone..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+          <button
+            className="btn btn-primary btn-block"
+            onClick={() =>
+              setEditando({
+                id: "",
+                nome: "",
+                telefone: "",
+                email: "",
+                origem: "Indicação",
+                observacoes: "",
+                criadoEm: new Date().toISOString(),
+              })
+            }
+          >
+            + Novo cliente
+          </button>
+        </div>
+
+        {filtrados.length === 0 ? (
+          <div className="empty-state">
+            <div className="title">Nenhum cliente cadastrado</div>
+            <p>Cadastre o primeiro cliente para começar a registrar vendas.</p>
+          </div>
+        ) : (
+          <div className="list">
+            {filtrados.map((c) => (
+              <div
+                key={c.id}
+                className="row-card"
+                style={{ flexDirection: "column", alignItems: "stretch" }}
+              >
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <div className="row-card-media-placeholder">
+                    {c.nome.slice(0, 1).toUpperCase() || "?"}
+                  </div>
+                  <div className="row-card-body">
+                    <div className="row-card-title">{c.nome}</div>
+                    <div className="row-card-sub">{c.telefone || c.origem || "—"}</div>
+                  </div>
+                  <div className="row-card-trail">{currency(totalGasto(c.id))}</div>
+                </div>
+                <div className="row-card-expand row-card-actions">
+                  <button className="btn btn-ghost btn-sm" onClick={() => setEditando({ ...c })}>
+                    Editar
+                  </button>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={async () => {
+                      if (confirm("Remover este cliente?")) {
+                        setClientes(await removeCliente(c.id));
+                      }
+                    }}
+                  >
+                    Remover
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {editando && (
+        <div className="sheet-overlay" onClick={() => setEditando(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <h2>{editando.id ? "Editar cliente" : "Novo cliente"}</h2>
+            <div className="form-grid">
+              <div className="form-row">
+                <label>Nome</label>
+                <input
+                  className="text-input"
+                  value={editando.nome}
+                  onChange={(e) => setEditando({ ...editando, nome: e.target.value })}
+                />
+              </div>
+              <div className="form-row">
+                <label>Telefone / WhatsApp</label>
+                <input
+                  className="text-input"
+                  inputMode="tel"
+                  value={editando.telefone}
+                  onChange={(e) => setEditando({ ...editando, telefone: e.target.value })}
+                />
+              </div>
+              <div className="form-row">
+                <label>E-mail</label>
+                <input
+                  className="text-input"
+                  inputMode="email"
+                  value={editando.email}
+                  onChange={(e) => setEditando({ ...editando, email: e.target.value })}
+                />
+              </div>
+              <div className="form-row">
+                <label>Origem</label>
+                <select
+                  className="select-input"
+                  value={editando.origem}
+                  onChange={(e) => setEditando({ ...editando, origem: e.target.value })}
+                >
+                  <option>Família</option>
+                  <option>Amigo(a)</option>
+                  <option>Trabalho</option>
+                  <option>Salão</option>
+                  <option>Motorista de app</option>
+                  <option>Indicação</option>
+                  <option>Rede social</option>
+                  <option>Outro</option>
+                </select>
+              </div>
+              <div className="form-row">
+                <label>Observações</label>
+                <textarea
+                  className="textarea-input"
+                  rows={3}
+                  value={editando.observacoes}
+                  onChange={(e) =>
+                    setEditando({ ...editando, observacoes: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={() => setEditando(null)}>
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  if (editando && editando.nome.trim()) {
+                    setClientes(await upsertCliente(editando));
+                    setEditando(null);
+                  }
+                }}
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------- Vendas ---------------------------- */
+
+function TabVendas() {
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [vendas, setVendas] = useState<Venda[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [clienteSelecionado, setClienteSelecionado] = useState("");
+  const [clienteAvulso, setClienteAvulso] = useState("");
+  const [formaPagamento, setFormaPagamento] = useState("Pix");
+  const [buscaProduto, setBuscaProduto] = useState("");
+  const [carrinho, setCarrinho] = useState<ItemVenda[]>([]);
+  const [sheetAberto, setSheetAberto] = useState(false);
+  const [vendaEditando, setVendaEditando] = useState<Venda | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  async function recarregar() {
+    const [p, c, v] = await Promise.all([getProdutos(), getClientes(), getVendas()]);
+    setProdutos(p);
+    setClientes(c);
+    setVendas(v);
+  }
+
+  useEffect(() => {
+    recarregar().finally(() => setCarregando(false));
+  }, []);
+
+  // Ao editar uma venda ativa (concluída), os itens que já estavam nela
+  // ainda não foram "devolvidos" ao estoque na tela — então a quantidade
+  // disponível pra escolher é o estoque atual + o que já estava alocado.
+  // Se a venda estava cancelada, os itens já foram devolvidos ao estoque
+  // no cancelamento, então não somamos nada extra.
+  function estoqueDisponivel(p: Produto) {
+    if (!vendaEditando || vendaEditando.status !== "concluida") return p.estoque;
+    const jaAlocado = vendaEditando.itens.find((i) => i.produtoId === p.id)?.quantidade ?? 0;
+    return p.estoque + jaAlocado;
+  }
+
+  const produtosFiltrados = useMemo(() => {
+    const termo = buscaProduto.trim().toLowerCase();
+    const ativos = produtos.filter((p) => p.ativo);
+    return termo ? ativos.filter((p) => p.nome.toLowerCase().includes(termo)) : ativos;
+  }, [produtos, buscaProduto]);
+
+  function ajustarQtdCarrinho(produtoId: string, delta: number) {
+    const produto = produtos.find((p) => p.id === produtoId);
+    setCarrinho((itens) =>
+      itens
+        .map((item) => {
+          if (item.produtoId !== produtoId) return item;
+          const novaQtd = item.quantidade + delta;
+          if (produto && novaQtd > estoqueDisponivel(produto)) return item;
+          return { ...item, quantidade: novaQtd };
+        })
+        .filter((item) => item.quantidade > 0)
+    );
+  }
+
+  function abrirNovaVenda() {
+    setVendaEditando(null);
+    setCarrinho([]);
+    setClienteSelecionado("");
+    setClienteAvulso("");
+    setFormaPagamento("Pix");
+    setSheetAberto(true);
+  }
+
+  function abrirEdicaoVenda(v: Venda) {
+    setVendaEditando(v);
+    setCarrinho(v.itens.map((i) => ({ ...i })));
+    setClienteSelecionado(v.clienteId ?? "");
+    setClienteAvulso(v.clienteId ? "" : v.clienteNome);
+    setFormaPagamento(v.formaPagamento);
+    setSheetAberto(true);
+  }
+
+  function fecharSheet() {
+    setSheetAberto(false);
+    setVendaEditando(null);
+    setCarrinho([]);
+    setClienteSelecionado("");
+    setClienteAvulso("");
+  }
+
+  const totalCarrinho = carrinho.reduce(
+    (s, i) => s + i.quantidade * i.precoUnitario,
+    0
+  );
+  const vendasHoje = vendas.filter(
+    (v) =>
+      v.status === "concluida" &&
+      new Date(v.data).toDateString() === new Date().toDateString()
+  );
+  const faturadoHoje = vendasHoje.reduce((s, v) => s + v.total, 0);
+
+  if (carregando) {
+    return <div className="empty-state">Carregando vendas...</div>;
+  }
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Vendas</h1>
+        <p>Registre uma venda e acompanhe o histórico.</p>
+      </div>
+
+      <div className="kpi-scroll">
+        <div className="kpi-card">
+          <div className="label">Vendas hoje</div>
+          <div className="value">{vendasHoje.length}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Faturado hoje</div>
+          <div className="value accent">{currency(faturadoHoje)}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Total de vendas</div>
+          <div className="value">{vendas.length}</div>
+        </div>
+      </div>
+
+      <button
+        className="btn btn-primary btn-block"
+        style={{ marginBottom: 20 }}
+        onClick={abrirNovaVenda}
+      >
+        + Nova venda
+      </button>
+
+      <div className="panel-card">
+        <h2 className="panel-title">Histórico de vendas</h2>
+        {vendas.length === 0 ? (
+          <div className="empty-state">
+            <div className="title">Nenhuma venda registrada</div>
+            <p>As vendas finalizadas aparecerão aqui.</p>
+          </div>
+        ) : (
+          <div className="list">
+            {vendas.map((v) => (
+              <div
+                key={v.id}
+                className="row-card"
+                style={{ flexDirection: "column", alignItems: "stretch" }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <div className="row-card-body">
+                    <div className="row-card-title">{v.clienteNome}</div>
+                    <div className="row-card-sub">
+                      {v.itens.map((i) => `${i.quantidade}x ${i.nome}`).join(", ")}
+                    </div>
+                  </div>
+                  <div className="row-card-trail">
+                    <div>{currency(v.total)}</div>
+                    <span
+                      className={"badge " + (v.status === "concluida" ? "badge-ok" : "badge-low")}
+                      style={{ marginTop: 4 }}
+                    >
+                      {v.status === "concluida" ? "Concluída" : "Cancelada"}
+                    </span>
+                  </div>
+                </div>
+                <div
+                  className="row-card-expand"
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                >
+                  <span style={{ fontSize: "0.76rem", color: "var(--muted)" }}>
+                    {new Date(v.data).toLocaleString("pt-BR")} · {v.formaPagamento}
+                  </span>
+                  {v.status === "concluida" ? (
+                    <div className="row-card-actions" style={{ marginTop: 0 }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => abrirEdicaoVenda(v)}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={async () => {
+                          if (confirm("Cancelar esta venda? O estoque será devolvido.")) {
+                            await cancelarVenda(v.id);
+                            await recarregar();
+                          }
+                        }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="row-card-actions" style={{ marginTop: 0 }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => abrirEdicaoVenda(v)}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={async () => {
+                          await reativarVenda(v.id);
+                          await recarregar();
+                        }}
+                      >
+                        Reativar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {sheetAberto && (
+        <div className="sheet-overlay" onClick={fecharSheet}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <h2>{vendaEditando ? "Editar venda" : "Nova venda"}</h2>
+            <input
+              className="search-input"
+              placeholder="Buscar produto..."
+              value={buscaProduto}
+              onChange={(e) => setBuscaProduto(e.target.value)}
+              style={{ marginBottom: 12 }}
+            />
+            <div
+              style={{
+                display: "grid",
+                gap: 8,
+                maxHeight: 200,
+                overflowY: "auto",
+                marginBottom: 16,
+              }}
+            >
+              {produtosFiltrados.map((p) => {
+                const disponivel = estoqueDisponivel(p);
+                return (
+                  <div
+                    key={p.id}
+                    className="cart-line"
+                    style={{
+                      cursor: disponivel > 0 ? "pointer" : "not-allowed",
+                      opacity: disponivel > 0 ? 1 : 0.45,
+                    }}
+                    onClick={() => {
+                      if (disponivel <= 0) return;
+                      setCarrinho((itens) => {
+                        const existente = itens.find((i) => i.produtoId === p.id);
+                        if (existente) {
+                          if (existente.quantidade >= disponivel) return itens;
+                          return itens.map((i) =>
+                            i.produtoId === p.id ? { ...i, quantidade: i.quantidade + 1 } : i
+                          );
+                        }
+                        return [
+                          ...itens,
+                          { produtoId: p.id, nome: p.nome, quantidade: 1, precoUnitario: p.preco },
+                        ];
+                      });
+                    }}
+                  >
+                    <span>
+                      {p.nome}{" "}
+                      <span style={{ color: "var(--muted)", fontSize: "0.76rem" }}>
+                        ({disponivel} un.)
+                      </span>
+                    </span>
+                    <span>{currency(p.preco)}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {carrinho.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                {carrinho.map((item) => (
+                  <div key={item.produtoId} className="cart-line">
+                    <span>{item.nome}</span>
+                    <div className="qty-control">
+                      <button onClick={() => ajustarQtdCarrinho(item.produtoId, -1)}>−</button>
+                      <span style={{ minWidth: 16, textAlign: "center" }}>{item.quantidade}</span>
+                      <button onClick={() => ajustarQtdCarrinho(item.produtoId, 1)}>+</button>
+                    </div>
+                  </div>
+                ))}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginTop: 10,
+                    paddingTop: 10,
+                    borderTop: "1px solid var(--border)",
+                    fontWeight: 700,
+                  }}
+                >
+                  <span>Total</span>
+                  <span className="value accent" style={{ fontSize: "1.05rem" }}>
+                    {currency(totalCarrinho)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="form-grid">
+              <div className="form-row">
+                <label>Cliente cadastrado</label>
+                <select
+                  className="select-input"
+                  value={clienteSelecionado}
+                  onChange={(e) => setClienteSelecionado(e.target.value)}
+                >
+                  <option value="">— Cliente avulso —</option>
+                  {clientes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {!clienteSelecionado && (
+                <div className="form-row">
+                  <label>Nome do cliente avulso (opcional)</label>
+                  <input
+                    className="text-input"
+                    value={clienteAvulso}
+                    onChange={(e) => setClienteAvulso(e.target.value)}
+                  />
+                </div>
+              )}
+              <div className="form-row">
+                <label>Forma de pagamento</label>
+                <select
+                  className="select-input"
+                  value={formaPagamento}
+                  onChange={(e) => setFormaPagamento(e.target.value)}
+                >
+                  <option>Pix</option>
+                  <option>Dinheiro</option>
+                  <option>Cartão de débito</option>
+                  <option>Cartão de crédito</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={fecharSheet}>
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={carrinho.length === 0 || salvando}
+                onClick={async () => {
+                  if (carrinho.length === 0) return;
+                  setSalvando(true);
+                  const cliente = clientes.find((c) => c.id === clienteSelecionado);
+                  const dadosVenda = {
+                    clienteId: cliente ? cliente.id : null,
+                    clienteNome: cliente ? cliente.nome : clienteAvulso.trim() || "Cliente avulso",
+                    itens: carrinho,
+                    formaPagamento,
+                  };
+                  if (vendaEditando) {
+                    await atualizarVenda(vendaEditando.id, dadosVenda);
+                  } else {
+                    await registrarVenda(dadosVenda);
+                  }
+                  setSalvando(false);
+                  fecharSheet();
+                  await recarregar();
+                }}
+              >
+                {salvando
+                  ? "Salvando..."
+                  : vendaEditando
+                  ? "Salvar alterações"
+                  : "Finalizar venda"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------- Financeiro ---------------------------- */
+
+function TabFinanceiro() {
+  const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [sheetAberto, setSheetAberto] = useState(false);
+  const [tipo, setTipo] = useState<"entrada" | "saida">("saida");
+  const [categoria, setCategoria] = useState("Despesa operacional");
+  const [descricao, setDescricao] = useState("");
+  const [valor, setValor] = useState(0);
+
+  useEffect(() => {
+    getFinanceiro()
+      .then(setLancamentos)
+      .finally(() => setCarregando(false));
+  }, []);
+
+  const resumo = useMemo(() => {
+    const entradas = lancamentos.filter((l) => l.tipo === "entrada").reduce((s, l) => s + l.valor, 0);
+    const saidas = lancamentos.filter((l) => l.tipo === "saida").reduce((s, l) => s + l.valor, 0);
+    return { entradas, saidas, saldo: entradas - saidas };
+  }, [lancamentos]);
+
+  if (carregando) {
+    return <div className="empty-state">Carregando financeiro...</div>;
+  }
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Financeiro</h1>
+        <p>Entradas e saídas do negócio.</p>
+      </div>
+
+      <div className="kpi-scroll">
+        <div className="kpi-card">
+          <div className="label">Entradas</div>
+          <div className="value positive">{currency(resumo.entradas)}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Saídas</div>
+          <div className="value negative">{currency(resumo.saidas)}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Saldo</div>
+          <div className={"value " + (resumo.saldo >= 0 ? "positive" : "negative")}>
+            {currency(resumo.saldo)}
+          </div>
+        </div>
+      </div>
+
+      <button
+        className="btn btn-primary btn-block"
+        style={{ marginBottom: 20 }}
+        onClick={() => setSheetAberto(true)}
+      >
+        + Novo lançamento
+      </button>
+
+      <div className="panel-card">
+        <h2 className="panel-title">Lançamentos</h2>
+        {lancamentos.length === 0 ? (
+          <div className="empty-state">
+            <div className="title">Nenhum lançamento ainda</div>
+            <p>Vendas finalizadas geram entradas automaticamente aqui. Despesas você lança manualmente.</p>
+          </div>
+        ) : (
+          <div className="list">
+            {lancamentos.map((l) => (
+              <div
+                key={l.id}
+                className="row-card"
+                style={{ flexDirection: "column", alignItems: "stretch" }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <div className="row-card-body">
+                    <div className="row-card-title">{l.descricao}</div>
+                    <div className="row-card-sub">
+                      {l.categoria} · {new Date(l.data).toLocaleDateString("pt-BR")}
+                    </div>
+                  </div>
+                  <div
+                    className="row-card-trail"
+                    style={{ color: l.tipo === "entrada" ? "var(--success)" : "var(--danger)" }}
+                  >
+                    {l.tipo === "entrada" ? "+" : "−"}
+                    {currency(l.valor)}
+                  </div>
+                </div>
+                <div
+                  className="row-card-expand"
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                >
+                  <span className={"badge " + (l.tipo === "entrada" ? "badge-ok" : "badge-low")}>
+                    {l.tipo === "entrada" ? "Entrada" : "Saída"}
+                  </span>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={async () => {
+                      if (confirm("Remover este lançamento?")) {
+                        setLancamentos(await removerLancamento(l.id));
+                      }
+                    }}
+                  >
+                    Remover
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {sheetAberto && (
+        <div className="sheet-overlay" onClick={() => setSheetAberto(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <h2>Novo lançamento</h2>
+            <div className="form-grid">
+              <div className="form-row">
+                <label>Tipo</label>
+                <select
+                  className="select-input"
+                  value={tipo}
+                  onChange={(e) => setTipo(e.target.value as "entrada" | "saida")}
+                >
+                  <option value="saida">Saída (despesa)</option>
+                  <option value="entrada">Entrada (receita manual)</option>
+                </select>
+              </div>
+              <div className="form-row">
+                <label>Categoria</label>
+                <input
+                  className="text-input"
+                  value={categoria}
+                  onChange={(e) => setCategoria(e.target.value)}
+                  placeholder="Ex: Frete, Marketing, Fornecedor..."
+                />
+              </div>
+              <div className="form-row">
+                <label>Descrição</label>
+                <input
+                  className="text-input"
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
+                />
+              </div>
+              <div className="form-row">
+                <label>Valor (R$)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  className="text-input"
+                  value={valor}
+                  onChange={(e) => setValor(Number(e.target.value))}
+                />
+              </div>
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={() => setSheetAberto(false)}>
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  if (descricao.trim() && valor > 0) {
+                    setLancamentos(await addLancamento({ tipo, categoria, descricao, valor }));
+                    setSheetAberto(false);
+                    setDescricao("");
+                    setValor(0);
+                  }
+                }}
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------- Shell ---------------------------- */
+
+const TABS = [
+  { id: "inicio", label: "Início", Icon: IconInicio },
+  { id: "estoque", label: "Estoque", Icon: IconEstoque },
+  { id: "clientes", label: "Clientes", Icon: IconClientes },
+  { id: "vendas", label: "Vendas", Icon: IconVendas },
+  { id: "financeiro", label: "Financeiro", Icon: IconFinanceiro },
+] as const;
+
+export default function PainelPage() {
+  const [aba, setAba] = useState<(typeof TABS)[number]["id"]>("inicio");
+  const router = useRouter();
+  const atual = TABS.find((t) => t.id === aba)!;
+
+  async function sair() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
+  return (
+    <div className="app-shell">
+      <header className="top-bar">
+        <div className="top-bar-inner">
+          <div className="brand">
+            Painel Ozonteck
+            <span>{atual.label}</span>
+          </div>
+          <button
+            className="btn btn-ghost btn-sm top-bar-actions"
+            onClick={sair}
+            title="Sair"
+          >
+            <IconSair className="icon-sm" />
+            Sair
+          </button>
+        </div>
+      </header>
+      <main className="main">
+        {aba === "inicio" && <TabInicio />}
+        {aba === "estoque" && <TabEstoque />}
+        {aba === "clientes" && <TabClientes />}
+        {aba === "vendas" && <TabVendas />}
+        {aba === "financeiro" && <TabFinanceiro />}
+      </main>
+      <nav className="bottom-nav">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            className={"bottom-nav-item " + (aba === t.id ? "active" : "")}
+            onClick={() => setAba(t.id)}
+          >
+            <t.Icon className="icon" />
+            {t.label}
+          </button>
+        ))}
+      </nav>
+    </div>
+  );
+}
