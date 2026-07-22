@@ -31,7 +31,13 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isAuthRoute = path.startsWith("/login") || path.startsWith("/auth");
+
+  // Deixa o callback do OAuth passar sem verificação de sessão
+  if (path.startsWith("/auth")) {
+    return response;
+  }
+
+  const isAuthRoute = path.startsWith("/login");
 
   if (!user && !isAuthRoute) {
     const url = request.nextUrl.clone();
