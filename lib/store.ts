@@ -178,6 +178,21 @@ export async function getProdutos(): Promise<Produto[]> {
   return data.map(produtoFromRow);
 }
 
+// Ranking global de produtos mais vendidos (agregado de todas as contas,
+// via função no banco que só devolve produto + total — nunca dados
+// individuais de venda). Retorna um mapa produto_id -> unidades vendidas.
+export async function getRankingProdutos(): Promise<Record<string, number>> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("ranking_produtos_vendidos");
+  if (error) throw error;
+
+  const ranking: Record<string, number> = {};
+  for (const row of data ?? []) {
+    ranking[row.produto_id] = Number(row.total_vendido);
+  }
+  return ranking;
+}
+
 // Só permite editar produtos que já existem no catálogo — o cadastro de
 // produtos novos foi desativado.
 export async function upsertProduto(produto: Produto): Promise<Produto[]> {
