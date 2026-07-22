@@ -478,6 +478,15 @@ export async function cancelarVenda(id: string) {
   }
 }
 
+export async function excluirVenda(id: string): Promise<Venda[]> {
+  const supabase = createClient();
+  // Remove os lancamentos financeiros ligados a essa venda (entrada + estorno),
+  // pra nao deixar registro orfao no Financeiro. venda_itens sai junto via cascade.
+  await supabase.from("lancamentos").delete().eq("venda_id", id);
+  await supabase.from("vendas").delete().eq("id", id);
+  return getVendas();
+}
+
 /* ---------------------------- Financeiro ---------------------------- */
 
 export async function getFinanceiro(): Promise<Lancamento[]> {
