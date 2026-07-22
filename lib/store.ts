@@ -20,6 +20,10 @@ export type Perfil = {
   whatsapp: string;
   email: string;
   cpf: string;
+  foto: string | null;
+  graduacao: string;
+  metaPontuacao: number;
+  metaVenda: number;
   cadastroCompleto: boolean;
 };
 
@@ -512,6 +516,10 @@ function perfilFromRow(row: any): Perfil {
     whatsapp: row.whatsapp ?? "",
     email: row.email ?? "",
     cpf: row.cpf ?? "",
+    foto: row.foto ?? null,
+    graduacao: row.graduacao ?? "",
+    metaPontuacao: Number(row.meta_pontuacao ?? 0),
+    metaVenda: Number(row.meta_venda ?? 0),
     cadastroCompleto: !!row.cadastro_completo,
   };
 }
@@ -555,6 +563,10 @@ export async function getPerfil(): Promise<Perfil | null> {
       whatsapp: "",
       email: user.email ?? "",
       cpf: "",
+      foto: null,
+      graduacao: "",
+      metaPontuacao: 0,
+      metaVenda: 0,
       cadastroCompleto: false,
     };
   }
@@ -588,4 +600,60 @@ export async function completarCadastro(dados: {
 
   if (error) throw error;
   return perfilFromRow(data);
+}
+
+export async function atualizarPerfil(dados: {
+  nome: string;
+  whatsapp: string;
+  email: string;
+  cpf: string;
+  foto: string | null;
+  graduacao: string;
+  metaPontuacao: number;
+  metaVenda: number;
+}): Promise<Perfil> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Usuário não autenticado.");
+
+  const { data, error } = await supabase
+    .from("perfis")
+    .upsert({
+      id: user.id,
+      nome: dados.nome,
+      whatsapp: dados.whatsapp,
+      email: dados.email,
+      cpf: dados.cpf.replace(/\D/g, ""),
+      foto: dados.foto,
+      graduacao: dados.graduacao,
+      meta_pontuacao: dados.metaPontuacao,
+      meta_venda: dados.metaVenda,
+      cadastro_completo: true,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return perfilFromRow(data);
+}
+
+export async function uploadFotoPerfil(file: File): Promise<string> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Usuário não autenticado.");
+
+  const extensao = file.name.split(".").pop() || "jpg";
+  const caminho = `${user.id}/foto-${Date.now()}.${extensao}`;
+
+  const { error } = await supabase.storage
+    .from("perfil-fotos")
+    .upload(caminho, file, { upsert: true });
+  if (error) throw error;
+
+  const { data } = supabase.storage.from("perfil-fotos").getPublicUrl(caminho);
+  return data.publicUrl;
 }
