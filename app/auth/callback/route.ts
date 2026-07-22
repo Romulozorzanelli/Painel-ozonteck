@@ -10,8 +10,11 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+      // Usa URL absoluta para garantir redirecionamento correto
+      const redirectUrl = new URL(next, origin);
+      return NextResponse.redirect(redirectUrl.toString());
     }
+    console.error("[v0] Erro ao trocar código OAuth:", error.message);
   }
 
   return NextResponse.redirect(`${origin}/login?erro=auth`);
