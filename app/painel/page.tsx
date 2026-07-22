@@ -1374,6 +1374,9 @@ function TabVendas({
               {detalhes.tipoVenda === "revendedor" && (
                 <span className="badge badge-warn">Revendedor</span>
               )}
+              {detalhes.formaPagamento === "A receber" && (
+                <span className="badge badge-low">A receber</span>
+              )}
               <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
                 {new Date(detalhes.data).toLocaleString("pt-BR")} · {detalhes.formaPagamento}
               </span>
@@ -1617,6 +1620,7 @@ function TabVendas({
                   <option>Dinheiro</option>
                   <option>Cartão de débito</option>
                   <option>Cartão de crédito</option>
+                  <option>A receber</option>
                 </select>
               </div>
             </div>
