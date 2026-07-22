@@ -250,12 +250,7 @@ function TabEstoque() {
   }, [produtos, buscaEntrada]);
 
   const totalUnidades = produtos.reduce((s, p) => s + p.estoque, 0);
-  const valorEstoque = produtos.reduce((s, p) => s + p.estoque * p.preco, 0);
-  const lucroPotencial = produtos.reduce(
-    (s, p) => s + p.estoque * (p.preco - p.custo),
-    0
-  );
-  const estoqueBaixo = produtos.filter((p) => p.estoque <= p.estoqueMinimo).length;
+  const produtosComEstoque = produtos.filter((p) => p.estoque > 0).length;
 
   function statusDe(p: Produto) {
     return p.estoque === 0
@@ -332,42 +327,25 @@ function TabEstoque() {
   return (
     <div>
       <div className="page-header">
-        <h1>Estoque</h1>
+        <div className="page-header-row">
+          <h1>Estoque</h1>
+          <button className="btn btn-primary btn-sm" onClick={() => setEntradaAberta(true)}>
+            Entrada
+          </button>
+        </div>
         <p>Catálogo, quantidade disponível e preço.</p>
       </div>
 
       <div className="kpi-scroll">
         <div className="kpi-card">
-          <div className="label">Produtos</div>
-          <div className="value">{produtos.length}</div>
-        </div>
-        <div className="kpi-card">
           <div className="label">Unidades</div>
           <div className="value">{totalUnidades}</div>
         </div>
         <div className="kpi-card">
-          <div className="label">Valor em estoque</div>
-          <div className="value accent">{currency(valorEstoque)}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="label">Lucro potencial</div>
-          <div className="value positive">{currency(lucroPotencial)}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="label">Estoque baixo</div>
-          <div className={"value " + (estoqueBaixo > 0 ? "negative" : "")}>
-            {estoqueBaixo}
-          </div>
+          <div className="label">Variações em estoque</div>
+          <div className="value">{produtosComEstoque}</div>
         </div>
       </div>
-
-      <button
-        className="btn btn-primary btn-block"
-        style={{ marginBottom: 20 }}
-        onClick={() => setEntradaAberta(true)}
-      >
-        + Entrada de estoque
-      </button>
 
       <div className="panel-card">
         <div className="toolbar">
@@ -1404,6 +1382,7 @@ function TabVendas() {
 
 function TabFinanceiro() {
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [sheetAberto, setSheetAberto] = useState(false);
   const [tipo, setTipo] = useState<"entrada" | "saida">("saida");
@@ -1412,8 +1391,11 @@ function TabFinanceiro() {
   const [valor, setValor] = useState(0);
 
   useEffect(() => {
-    getFinanceiro()
-      .then(setLancamentos)
+    Promise.all([getFinanceiro(), getProdutos()])
+      .then(([f, p]) => {
+        setLancamentos(f);
+        setProdutos(p);
+      })
       .finally(() => setCarregando(false));
   }, []);
 
@@ -1422,6 +1404,12 @@ function TabFinanceiro() {
     const saidas = lancamentos.filter((l) => l.tipo === "saida").reduce((s, l) => s + l.valor, 0);
     return { entradas, saidas, saldo: entradas - saidas };
   }, [lancamentos]);
+
+  const valorEstoque = produtos.reduce((s, p) => s + p.estoque * p.preco, 0);
+  const lucroPotencial = produtos.reduce(
+    (s, p) => s + p.estoque * (p.preco - p.custo),
+    0
+  );
 
   if (carregando) {
     return <div className="empty-state">Carregando financeiro...</div>;
@@ -1448,6 +1436,18 @@ function TabFinanceiro() {
           <div className={"value " + (resumo.saldo >= 0 ? "positive" : "negative")}>
             {currency(resumo.saldo)}
           </div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Produtos</div>
+          <div className="value">{produtos.length}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Valor em estoque</div>
+          <div className="value accent">{currency(valorEstoque)}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">Lucro potencial</div>
+          <div className="value positive">{currency(lucroPotencial)}</div>
         </div>
       </div>
 
