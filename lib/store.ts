@@ -14,6 +14,15 @@ export type Produto = {
   ativo: boolean;
 };
 
+export type Perfil = {
+  id: string;
+  nome: string;
+  whatsapp: string;
+  email: string;
+  cpf: string;
+  cadastroCompleto: boolean;
+};
+
 export type Cliente = {
   id: string;
   nome: string;
@@ -492,4 +501,91 @@ export async function removerLancamento(id: string): Promise<Lancamento[]> {
   const supabase = createClient();
   await supabase.from("lancamentos").delete().eq("id", id);
   return getFinanceiro();
+}
+
+/* ---------------------------- Perfil (cadastro) ---------------------------- */
+
+function perfilFromRow(row: any): Perfil {
+  return {
+    id: row.id,
+    nome: row.nome ?? "",
+    whatsapp: row.whatsapp ?? "",
+    email: row.email ?? "",
+    cpf: row.cpf ?? "",
+    cadastroCompleto: !!row.cadastro_completo,
+  };
+}
+
+export function validarCpf(cpfRaw: string): boolean {
+  const cpf = cpfRaw.replace(/\D/g, "");
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+
+  function calcDigito(base: string, pesoInicial: number) {
+    let soma = 0;
+    for (let i = 0; i < base.length; i++) {
+      soma += Number(base[i]) * (pesoInicial - i);
+    }
+    const resto = (soma * 10) % 11;
+    return resto === 10 ? 0 : resto;
+  }
+
+  const d1 = calcDigito(cpf.slice(0, 9), 10);
+  const d2 = calcDigito(cpf.slice(0, 9) + d1, 11);
+  return cpf === cpf.slice(0, 9) + d1 + d2;
+}
+
+export async function getPerfil(): Promise<Perfil | null> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from("perfis")
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!data) {
+    // Usuário novo: ainda não existe linha em perfis, cadastro pendente.
+    return {
+      id: user.id,
+      nome: (user.user_metadata?.full_name || user.user_metadata?.name || "") as string,
+      whatsapp: "",
+      email: user.email ?? "",
+      cpf: "",
+      cadastroCompleto: false,
+    };
+  }
+  return perfilFromRow(data);
+}
+
+export async function completarCadastro(dados: {
+  nome: string;
+  whatsapp: string;
+  email: string;
+  cpf: string;
+}): Promise<Perfil> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Usuário não autenticado.");
+
+  const { data, error } = await supabase
+    .from("perfis")
+    .upsert({
+      id: user.id,
+      nome: dados.nome,
+      whatsapp: dados.whatsapp,
+      email: dados.email,
+      cpf: dados.cpf.replace(/\D/g, ""),
+      cadastro_completo: true,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return perfilFromRow(data);
 }
