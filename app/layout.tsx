@@ -3,8 +3,8 @@ import "./globals.css";
 import PwaRegister from "./pwa-register";
 
 export const metadata: Metadata = {
-  title: "Painel Ozonteck",
-  description: "Sistema de controle de produtos, estoque, clientes, vendas e financeiro.",
+  title: "Avance Vendas",
+  description: "Sistema de controle de produtos, estoque, clientes, vendas e financeiro — time Avance.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Painel Ozonteck",
+    title: "Avance Vendas",
   },
 };
 
