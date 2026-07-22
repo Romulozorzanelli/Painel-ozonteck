@@ -1,10 +1,8 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { type NextRequest, NextResponse } from "next/server";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/config";
 
-type CookieToSet = { name: string; value: string; options?: CookieOptions };
-
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/painel";
@@ -17,16 +15,21 @@ export async function GET(request: Request) {
 
     const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       cookies: {
+        // Usa o parser nativo do NextRequest (o mesmo que o middleware já
+        // usa) em vez de fazer parsing manual do header "cookie" — o parser
+        // manual não lida corretamente com todos os casos (cookies
+        // fatiados, valores com caracteres especiais), causando falhas
+        // intermitentes de "code verifier" e "state" no login.
         getAll() {
-          return request.headers
-            .get("cookie")
-            ?.split(";")
-            .map((c) => {
-              const [name, ...rest] = c.trim().split("=");
-              return { name: name.trim(), value: rest.join("=") };
-            }) ?? [];
+          return request.cookies.getAll();
         },
-        setAll(cookiesToSet: CookieToSet[]) {
+        setAll(
+          cookiesToSet: {
+            name: string;
+            value: string;
+            options?: any;
+          }[]
+        ) {
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           );
