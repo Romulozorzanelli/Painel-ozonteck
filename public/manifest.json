@@ -1,6 +1,6 @@
 {
-  "name": "Avance Vendas",
-  "short_name": "Avance",
+  "name": "Painel Ozonteck",
+  "short_name": "Ozonteck",
   "description": "Sistema de controle de produtos, estoque, clientes, vendas e financeiro.",
   "start_url": "/",
   "scope": "/",
