@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import AboutContent from "../about-content";
 import {
   type Produto,
   type Cliente,
@@ -112,6 +113,23 @@ function IconSair({ className }: { className?: string }) {
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <path d="m16 17 5-5-5-5" />
       <path d="M21 12H9" />
+    </svg>
+  );
+}
+function IconInfo({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5.5" />
+      <path d="M12 8v.01" />
     </svg>
   );
 }
@@ -1433,6 +1451,7 @@ const TABS = [
 
 export default function PainelPage() {
   const [aba, setAba] = useState<(typeof TABS)[number]["id"]>("inicio");
+  const [sobreAberto, setSobreAberto] = useState(false);
   const router = useRouter();
   const atual = TABS.find((t) => t.id === aba)!;
 
@@ -1448,17 +1467,22 @@ export default function PainelPage() {
       <header className="top-bar">
         <div className="top-bar-inner">
           <div className="brand">
-            Painel Ozonteck
+            Avance Vendas
             <span>{atual.label}</span>
           </div>
-          <button
-            className="btn btn-ghost btn-sm top-bar-actions"
-            onClick={sair}
-            title="Sair"
-          >
-            <IconSair className="icon-sm" />
-            Sair
-          </button>
+          <div className="top-bar-actions" style={{ display: "flex", gap: 8 }}>
+            <button
+              className="btn btn-ghost btn-sm btn-icon"
+              onClick={() => setSobreAberto(true)}
+              title="Sobre"
+            >
+              <IconInfo className="icon-sm" />
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={sair} title="Sair">
+              <IconSair className="icon-sm" />
+              Sair
+            </button>
+          </div>
         </div>
       </header>
       <main className="main">
@@ -1480,6 +1504,15 @@ export default function PainelPage() {
           </button>
         ))}
       </nav>
+
+      {sobreAberto && (
+        <div className="sheet-overlay" onClick={() => setSobreAberto(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <AboutContent />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
