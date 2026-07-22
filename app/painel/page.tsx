@@ -1610,11 +1610,15 @@ function TabFinanceiro() {
 /* ---------------------------- Perfil ---------------------------- */
 
 const GRADUACOES = [
-  "Revendedor(a)",
-  "Revendedor(a) Bronze",
-  "Revendedor(a) Prata",
-  "Revendedor(a) Ouro",
-  "Revendedor(a) Diamante",
+  "Topázio",
+  "Ônix",
+  "Ametista",
+  "Diamante Negro",
+  "Jaspe",
+  "Jade",
+  "Royal Black",
+  "Dream Red",
+  "Master Gold",
 ];
 
 function TabPerfil() {
