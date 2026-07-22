@@ -11,6 +11,7 @@ import {
   type ItemVenda,
   type Perfil,
   getProdutos,
+  getRankingProdutos,
   upsertProduto,
   removeProduto,
   ajustarEstoque,
@@ -237,6 +238,7 @@ function TabInicio() {
 
 function TabEstoque() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [ranking, setRanking] = useState<Record<string, number>>({});
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
   const [ocultarZerados, setOcultarZerados] = useState(true);
@@ -254,19 +256,38 @@ function TabEstoque() {
     getProdutos()
       .then(setProdutos)
       .finally(() => setCarregando(false));
+    // Ranking é só um "extra" visual — se falhar (ex: RPC indisponível),
+    // não deve travar o carregamento do estoque.
+    getRankingProdutos()
+      .then(setRanking)
+      .catch(() => {});
   }, []);
 
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     let lista = produtos;
     if (ocultarZerados) lista = lista.filter((p) => p.estoque > 0);
-    if (!termo) return lista;
-    return lista.filter(
-      (p) =>
-        p.nome.toLowerCase().includes(termo) ||
-        p.familiaOlfativa.toLowerCase().includes(termo)
+    if (termo) {
+      lista = lista.filter(
+        (p) =>
+          p.nome.toLowerCase().includes(termo) ||
+          p.familiaOlfativa.toLowerCase().includes(termo)
+      );
+    }
+    return [...lista].sort(
+      (a, b) => (ranking[b.id] ?? 0) - (ranking[a.id] ?? 0)
     );
-  }, [produtos, busca, ocultarZerados]);
+  }, [produtos, busca, ocultarZerados, ranking]);
+
+  const maisVendidosIds = useMemo(() => {
+    return new Set(
+      Object.entries(ranking)
+        .filter(([, total]) => total > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([id]) => id)
+    );
+  }, [ranking]);
 
   const resultadosEntrada = useMemo(() => {
     const termo = buscaEntrada.trim().toLowerCase();
@@ -424,6 +445,11 @@ function TabEstoque() {
                     ) : (
                       <span className="stock-card-placeholder">
                         {p.nome.slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
+                    {maisVendidosIds.has(p.id) && (
+                      <span className="badge stock-card-badge-left" style={{ background: "var(--gold-soft)", color: "var(--gold)" }}>
+                        🔥 Mais vendido
                       </span>
                     )}
                     <span className={"badge stock-card-badge " + status.cls}>
