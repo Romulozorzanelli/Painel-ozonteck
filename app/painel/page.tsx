@@ -37,6 +37,9 @@ import {
 const currency = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+const LOGO_URL =
+  "https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/brand-assets/Screenshot_20260722_100709_ChatGPT.jpg";
+
 /* ---------------------------- Ícones ---------------------------- */
 
 function IconEstoque({ className }: { className?: string }) {
@@ -2132,8 +2135,14 @@ function TelaCadastro({
   return (
     <div className="login-shell">
       <div className="login-card" style={{ textAlign: "left" }}>
+        <img
+          src={LOGO_URL}
+          alt="Avance Vendas"
+          className="login-logo"
+          style={{ display: "block", margin: "0 auto 12px" }}
+        />
         <div className="login-brand" style={{ textAlign: "center" }}>
-          Painel Ozonteck
+          Avance Vendas
           <span>Complete seu cadastro</span>
         </div>
         <p className="login-subtitle" style={{ textAlign: "center" }}>
@@ -2251,8 +2260,9 @@ export default function PainelPage() {
     <div className="app-shell">
       <header className="top-bar">
         <div className="top-bar-inner">
+          <img src={LOGO_URL} alt="Avance Vendas" className="top-bar-logo" />
           <div className="brand">
-            Painel Ozonteck
+            Avance Vendas
             <span>{atual.label}</span>
           </div>
           <button
