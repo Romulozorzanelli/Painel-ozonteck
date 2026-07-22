@@ -420,7 +420,7 @@ function TabEstoque() {
                 >
                   <div className="stock-card-media">
                     {p.imagem ? (
-                      <img src={p.imagem} alt={p.nome} />
+                      <img src={p.imagem} alt={p.nome} loading="lazy" decoding="async" />
                     ) : (
                       <span className="stock-card-placeholder">
                         {p.nome.slice(0, 1).toUpperCase()}
@@ -459,7 +459,7 @@ function TabEstoque() {
 
             <div className="stock-detail-media">
               {detalhes.imagem ? (
-                <img src={detalhes.imagem} alt={detalhes.nome} />
+                <img src={detalhes.imagem} alt={detalhes.nome} decoding="async" />
               ) : (
                 <span className="stock-card-placeholder">
                   {detalhes.nome.slice(0, 1).toUpperCase()}
