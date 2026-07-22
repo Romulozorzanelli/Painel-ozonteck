@@ -12,7 +12,6 @@ import {
   type Perfil,
   getProdutos,
   getRankingProdutos,
-  upsertProduto,
   removeProduto,
   ajustarEstoque,
   getClientes,
@@ -243,7 +242,6 @@ function TabEstoque() {
   const [busca, setBusca] = useState("");
   const [ocultarZerados, setOcultarZerados] = useState(true);
   const [detalhes, setDetalhes] = useState<Produto | null>(null);
-  const [editando, setEditando] = useState<Produto | null>(null);
   const [ajuste, setAjuste] = useState<Produto | null>(null);
   const [ajusteValor, setAjusteValor] = useState(0);
   const [entradaAberta, setEntradaAberta] = useState(false);
@@ -304,11 +302,6 @@ function TabEstoque() {
       : p.estoque <= p.estoqueMinimo
       ? { label: "Baixo", cls: "badge-warn" }
       : { label: "Em estoque", cls: "badge-ok" };
-  }
-
-  function abrirEdicao(p: Produto) {
-    setEditando({ ...p });
-    setDetalhes(null);
   }
 
   function abrirAjuste(p: Produto) {
@@ -538,14 +531,12 @@ function TabEstoque() {
               </p>
             )}
 
-            <div className="form-actions">
-              <button className="btn btn-ghost" onClick={() => abrirAjuste(detalhes)}>
-                Ajustar estoque
-              </button>
-              <button className="btn btn-ghost" onClick={() => abrirEdicao(detalhes)}>
-                Editar produto
-              </button>
-            </div>
+            <button
+              className="btn btn-primary btn-block"
+              onClick={() => abrirAjuste(detalhes)}
+            >
+              Ajustar estoque
+            </button>
             <button
               className="btn btn-danger btn-block"
               style={{ marginTop: 8 }}
@@ -715,121 +706,6 @@ function TabEstoque() {
               >
                 Confirmar entrada (
                 {itensEntrada.reduce((s, i) => s + i.quantidade, 0)} un.)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {editando && (
-        <div className="sheet-overlay" onClick={() => setEditando(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-handle" />
-            <h2>Editar produto</h2>
-            <div className="form-grid">
-              <div className="form-row">
-                <label>Nome</label>
-                <input
-                  className="text-input"
-                  value={editando.nome}
-                  onChange={(e) => setEditando({ ...editando, nome: e.target.value })}
-                />
-              </div>
-              <div className="form-row">
-                <label>Família olfativa / categoria</label>
-                <input
-                  className="text-input"
-                  value={editando.familiaOlfativa}
-                  onChange={(e) =>
-                    setEditando({ ...editando, familiaOlfativa: e.target.value })
-                  }
-                />
-              </div>
-              <div className="form-row">
-                <label>Descrição curta</label>
-                <textarea
-                  className="textarea-input"
-                  rows={2}
-                  value={editando.descricaoCurta}
-                  onChange={(e) =>
-                    setEditando({ ...editando, descricaoCurta: e.target.value })
-                  }
-                />
-              </div>
-              <div className="form-row">
-                <label>Link da imagem (opcional)</label>
-                <input
-                  className="text-input"
-                  placeholder="https://..."
-                  value={editando.imagem || ""}
-                  onChange={(e) => setEditando({ ...editando, imagem: e.target.value })}
-                />
-              </div>
-              <div className="form-row">
-                <label>Custo (R$)</label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  className="text-input"
-                  value={editando.custo}
-                  onChange={(e) =>
-                    setEditando({ ...editando, custo: Number(e.target.value) })
-                  }
-                />
-              </div>
-              <div className="form-row">
-                <label>Preço de venda (R$)</label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  className="text-input"
-                  value={editando.preco}
-                  onChange={(e) =>
-                    setEditando({ ...editando, preco: Number(e.target.value) })
-                  }
-                />
-              </div>
-              <div className="form-row">
-                <label>Estoque atual</label>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  className="text-input"
-                  value={editando.estoque}
-                  onChange={(e) =>
-                    setEditando({ ...editando, estoque: Number(e.target.value) })
-                  }
-                />
-              </div>
-              <div className="form-row">
-                <label>Estoque mínimo (alerta)</label>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  className="text-input"
-                  value={editando.estoqueMinimo}
-                  onChange={(e) =>
-                    setEditando({ ...editando, estoqueMinimo: Number(e.target.value) })
-                  }
-                />
-              </div>
-            </div>
-            <div className="form-actions">
-              <button className="btn btn-ghost" onClick={() => setEditando(null)}>
-                Cancelar
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={async () => {
-                  if (editando && editando.nome.trim()) {
-                    setProdutos(await upsertProduto(editando));
-                    setEditando(null);
-                  }
-                }}
-              >
-                Salvar
               </button>
             </div>
           </div>
