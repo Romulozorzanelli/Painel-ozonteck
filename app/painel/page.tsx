@@ -9,6 +9,7 @@ import {
   type Venda,
   type Lancamento,
   type ItemVenda,
+  type Perfil,
   getProdutos,
   upsertProduto,
   removeProduto,
@@ -24,6 +25,9 @@ import {
   getFinanceiro,
   addLancamento,
   removerLancamento,
+  getPerfil,
+  completarCadastro,
+  validarCpf,
 } from "@/lib/store";
 
 const currency = (v: number) =>
@@ -1584,6 +1588,129 @@ function TabFinanceiro() {
   );
 }
 
+/* ---------------------------- Cadastro (onboarding) ---------------------------- */
+
+function TelaCadastro({
+  perfil,
+  onCompleto,
+  onSair,
+}: {
+  perfil: Perfil;
+  onCompleto: (p: Perfil) => void;
+  onSair: () => void;
+}) {
+  const [nome, setNome] = useState(perfil.nome);
+  const [whatsapp, setWhatsapp] = useState(perfil.whatsapp);
+  const [email, setEmail] = useState(perfil.email);
+  const [cpf, setCpf] = useState(perfil.cpf);
+  const [erro, setErro] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  async function confirmar() {
+    setErro("");
+    if (!nome.trim()) {
+      setErro("Informe seu nome completo.");
+      return;
+    }
+    if (whatsapp.replace(/\D/g, "").length < 10) {
+      setErro("Informe um WhatsApp válido, com DDD.");
+      return;
+    }
+    if (!validarCpf(cpf)) {
+      setErro("CPF inválido. Confira os números digitados.");
+      return;
+    }
+    setEnviando(true);
+    try {
+      const atualizado = await completarCadastro({
+        nome: nome.trim(),
+        whatsapp,
+        email,
+        cpf,
+      });
+      onCompleto(atualizado);
+    } catch (e: any) {
+      setErro(
+        e?.code === "23505"
+          ? "Este CPF já está cadastrado em outra conta."
+          : "Não foi possível salvar. Tente novamente."
+      );
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="login-shell">
+      <div className="login-card" style={{ textAlign: "left" }}>
+        <div className="login-brand" style={{ textAlign: "center" }}>
+          Painel Ozonteck
+          <span>Complete seu cadastro</span>
+        </div>
+        <p className="login-subtitle" style={{ textAlign: "center" }}>
+          Antes de continuar, precisamos de mais alguns dados.
+        </p>
+
+        {erro && <div className="login-error">{erro}</div>}
+
+        <div className="form-grid">
+          <div className="form-row">
+            <label>Nome completo</label>
+            <input
+              className="text-input"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+            />
+          </div>
+          <div className="form-row">
+            <label>WhatsApp</label>
+            <input
+              className="text-input"
+              placeholder="(00) 00000-0000"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(e.target.value)}
+            />
+          </div>
+          <div className="form-row">
+            <label>Email</label>
+            <input
+              className="text-input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="form-row">
+            <label>CPF</label>
+            <input
+              className="text-input"
+              placeholder="000.000.000-00"
+              value={cpf}
+              onChange={(e) => setCpf(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <button
+          className="btn btn-primary btn-block"
+          style={{ marginTop: 18 }}
+          disabled={enviando}
+          onClick={confirmar}
+        >
+          {enviando ? "Salvando..." : "Concluir cadastro"}
+        </button>
+        <button
+          className="btn btn-ghost btn-block"
+          style={{ marginTop: 10 }}
+          onClick={onSair}
+        >
+          Sair
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------------------- Shell ---------------------------- */
 
 const TABS = [
@@ -1599,11 +1726,34 @@ export default function PainelPage() {
   const router = useRouter();
   const atual = TABS.find((t) => t.id === aba)!;
 
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [carregandoPerfil, setCarregandoPerfil] = useState(true);
+
+  useEffect(() => {
+    getPerfil()
+      .then(setPerfil)
+      .finally(() => setCarregandoPerfil(false));
+  }, []);
+
   async function sair() {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
+  }
+
+  if (carregandoPerfil) {
+    return (
+      <div className="app-shell">
+        <div className="empty-state" style={{ margin: "auto" }}>
+          Carregando...
+        </div>
+      </div>
+    );
+  }
+
+  if (perfil && !perfil.cadastroCompleto) {
+    return <TelaCadastro perfil={perfil} onCompleto={setPerfil} onSair={sair} />;
   }
 
   return (
