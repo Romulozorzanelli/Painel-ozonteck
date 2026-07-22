@@ -3,6 +3,13 @@ import { type NextRequest, NextResponse } from "next/server";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/config";
 
 export async function middleware(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+
+  // Deixa o callback do OAuth passar sem nenhuma interferência
+  if (path.startsWith("/auth")) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -29,13 +36,6 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const path = request.nextUrl.pathname;
-
-  // Deixa o callback do OAuth passar sem verificação de sessão
-  if (path.startsWith("/auth")) {
-    return response;
-  }
 
   const isAuthRoute = path.startsWith("/login");
 
