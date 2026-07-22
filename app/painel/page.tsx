@@ -27,6 +27,8 @@ import {
   removerLancamento,
   getPerfil,
   completarCadastro,
+  atualizarPerfil,
+  uploadFotoPerfil,
   validarCpf,
 } from "@/lib/store";
 
@@ -132,6 +134,23 @@ function IconInicio({ className }: { className?: string }) {
     >
       <path d="M3 10.5 12 3l9 7.5" />
       <path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5" />
+    </svg>
+  );
+}
+function IconPerfil({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="9.7" r="2.6" />
+      <path d="M6.3 18.2c1.3-2.6 3.4-3.9 5.7-3.9s4.4 1.3 5.7 3.9" />
     </svg>
   );
 }
@@ -1588,6 +1607,241 @@ function TabFinanceiro() {
   );
 }
 
+/* ---------------------------- Perfil ---------------------------- */
+
+const GRADUACOES = [
+  "Revendedor(a)",
+  "Revendedor(a) Bronze",
+  "Revendedor(a) Prata",
+  "Revendedor(a) Ouro",
+  "Revendedor(a) Diamante",
+];
+
+function TabPerfil() {
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState("");
+  const [sucesso, setSucesso] = useState(false);
+
+  const [nome, setNome] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [email, setEmail] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [foto, setFoto] = useState<string | null>(null);
+  const [graduacao, setGraduacao] = useState("");
+  const [metaPontuacao, setMetaPontuacao] = useState(0);
+  const [metaVenda, setMetaVenda] = useState(0);
+
+  useEffect(() => {
+    getPerfil()
+      .then((p) => {
+        setPerfil(p);
+        if (p) {
+          setNome(p.nome);
+          setWhatsapp(p.whatsapp);
+          setEmail(p.email);
+          setCpf(p.cpf);
+          setFoto(p.foto);
+          setGraduacao(p.graduacao);
+          setMetaPontuacao(p.metaPontuacao);
+          setMetaVenda(p.metaVenda);
+        }
+      })
+      .finally(() => setCarregando(false));
+  }, []);
+
+  async function trocarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setErro("");
+    setEnviandoFoto(true);
+    try {
+      const url = await uploadFotoPerfil(file);
+      setFoto(url);
+    } catch {
+      setErro("Não foi possível enviar a foto. Tente novamente.");
+    } finally {
+      setEnviandoFoto(false);
+      e.target.value = "";
+    }
+  }
+
+  async function salvar() {
+    setErro("");
+    setSucesso(false);
+    if (!nome.trim()) {
+      setErro("Informe seu nome completo.");
+      return;
+    }
+    if (whatsapp.replace(/\D/g, "").length < 10) {
+      setErro("Informe um WhatsApp válido, com DDD.");
+      return;
+    }
+    if (!validarCpf(cpf)) {
+      setErro("CPF inválido. Confira os números digitados.");
+      return;
+    }
+    setSalvando(true);
+    try {
+      const atualizado = await atualizarPerfil({
+        nome: nome.trim(),
+        whatsapp,
+        email,
+        cpf,
+        foto,
+        graduacao,
+        metaPontuacao,
+        metaVenda,
+      });
+      setPerfil(atualizado);
+      setSucesso(true);
+    } catch (e: any) {
+      setErro(
+        e?.code === "23505"
+          ? "Este CPF já está cadastrado em outra conta."
+          : "Não foi possível salvar. Tente novamente."
+      );
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  if (carregando || !perfil) {
+    return <div className="empty-state">Carregando perfil...</div>;
+  }
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Perfil</h1>
+        <p>Seus dados, graduação e metas.</p>
+      </div>
+
+      <div className="panel-card" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+          <div className="profile-avatar">
+            {foto ? (
+              <img src={foto} alt={nome} />
+            ) : (
+              <span>{(nome || "?").slice(0, 1).toUpperCase()}</span>
+            )}
+          </div>
+          <label className="btn btn-ghost btn-sm" style={{ cursor: "pointer" }}>
+            {enviandoFoto ? "Enviando..." : "Trocar foto"}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={trocarFoto}
+              disabled={enviandoFoto}
+              style={{ display: "none" }}
+            />
+          </label>
+        </div>
+      </div>
+
+      {erro && <div className="login-error" style={{ marginBottom: 12 }}>{erro}</div>}
+      {sucesso && (
+        <div style={{ color: "var(--success)", fontSize: "0.85rem", marginBottom: 12 }}>
+          Perfil salvo com sucesso.
+        </div>
+      )}
+
+      <div className="panel-card" style={{ marginBottom: 16 }}>
+        <h2 className="panel-title">Dados cadastrais</h2>
+        <div className="form-grid">
+          <div className="form-row">
+            <label>Nome completo</label>
+            <input
+              className="text-input"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+            />
+          </div>
+          <div className="form-row">
+            <label>WhatsApp</label>
+            <input
+              className="text-input"
+              placeholder="(00) 00000-0000"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(e.target.value)}
+            />
+          </div>
+          <div className="form-row">
+            <label>Email</label>
+            <input
+              className="text-input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="form-row">
+            <label>CPF</label>
+            <input
+              className="text-input"
+              placeholder="000.000.000-00"
+              value={cpf}
+              onChange={(e) => setCpf(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="panel-card" style={{ marginBottom: 16 }}>
+        <h2 className="panel-title">Graduação e metas</h2>
+        <div className="form-grid">
+          <div className="form-row">
+            <label>Graduação atual</label>
+            <select
+              className="select-input"
+              value={graduacao}
+              onChange={(e) => setGraduacao(e.target.value)}
+            >
+              <option value="">Selecionar...</option>
+              {GRADUACOES.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-row">
+            <label>Meta de pontuação</label>
+            <input
+              type="number"
+              inputMode="decimal"
+              className="text-input"
+              value={metaPontuacao}
+              onChange={(e) => setMetaPontuacao(Number(e.target.value))}
+            />
+          </div>
+          <div className="form-row">
+            <label>Meta de venda (R$)</label>
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              className="text-input"
+              value={metaVenda}
+              onChange={(e) => setMetaVenda(Number(e.target.value))}
+            />
+          </div>
+        </div>
+      </div>
+
+      <button
+        className="btn btn-primary btn-block"
+        disabled={salvando}
+        onClick={salvar}
+      >
+        {salvando ? "Salvando..." : "Salvar alterações"}
+      </button>
+    </div>
+  );
+}
+
 /* ---------------------------- Cadastro (onboarding) ---------------------------- */
 
 function TelaCadastro({
@@ -1719,6 +1973,7 @@ const TABS = [
   { id: "clientes", label: "Clientes", Icon: IconClientes },
   { id: "vendas", label: "Vendas", Icon: IconVendas },
   { id: "financeiro", label: "Financeiro", Icon: IconFinanceiro },
+  { id: "perfil", label: "Perfil", Icon: IconPerfil },
 ] as const;
 
 export default function PainelPage() {
@@ -1780,6 +2035,7 @@ export default function PainelPage() {
         {aba === "clientes" && <TabClientes />}
         {aba === "vendas" && <TabVendas />}
         {aba === "financeiro" && <TabFinanceiro />}
+        {aba === "perfil" && <TabPerfil />}
       </main>
       <nav className="bottom-nav">
         {TABS.map((t) => (
