@@ -879,6 +879,8 @@ function TabClientes() {
                 email: "",
                 origem: "Indicação",
                 observacoes: "",
+                dataNascimento: null,
+                proximoFollowup: null,
                 criadoEm: new Date().toISOString(),
               })
             }
@@ -988,6 +990,28 @@ function TabClientes() {
                   value={editando.observacoes}
                   onChange={(e) =>
                     setEditando({ ...editando, observacoes: e.target.value })
+                  }
+                />
+              </div>
+              <div className="form-row">
+                <label>Data de nascimento</label>
+                <input
+                  type="date"
+                  className="text-input"
+                  value={editando.dataNascimento || ""}
+                  onChange={(e) =>
+                    setEditando({ ...editando, dataNascimento: e.target.value || null })
+                  }
+                />
+              </div>
+              <div className="form-row">
+                <label>Próximo follow-up</label>
+                <input
+                  type="date"
+                  className="text-input"
+                  value={editando.proximoFollowup || ""}
+                  onChange={(e) =>
+                    setEditando({ ...editando, proximoFollowup: e.target.value || null })
                   }
                 />
               </div>
