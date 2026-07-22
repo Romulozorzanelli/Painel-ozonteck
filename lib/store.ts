@@ -56,6 +56,7 @@ export type Venda = {
   total: number;
   formaPagamento: string;
   status: "concluida" | "cancelada";
+  tipoVenda: "cliente" | "revendedor";
 };
 
 export type Lancamento = {
@@ -109,6 +110,7 @@ function vendaFromRow(row: any): Venda {
     total: Number(row.total),
     formaPagamento: row.forma_pagamento,
     status: row.status,
+    tipoVenda: row.tipo_venda ?? "cliente",
     itens: (row.venda_itens ?? []).map((i: any) => ({
       produtoId: i.produto_id,
       nome: i.nome,
@@ -291,6 +293,7 @@ export async function registrarVenda(input: {
   clienteNome: string;
   itens: ItemVenda[];
   formaPagamento: string;
+  tipoVenda: "cliente" | "revendedor";
 }) {
   const supabase = createClient();
   const total = input.itens.reduce((sum, i) => sum + i.quantidade * i.precoUnitario, 0);
@@ -303,6 +306,7 @@ export async function registrarVenda(input: {
       total,
       forma_pagamento: input.formaPagamento,
       status: "concluida",
+      tipo_venda: input.tipoVenda,
     })
     .select("id")
     .single();
@@ -339,6 +343,7 @@ export async function atualizarVenda(
     clienteNome: string;
     itens: ItemVenda[];
     formaPagamento: string;
+    tipoVenda: "cliente" | "revendedor";
   }
 ) {
   const supabase = createClient();
@@ -375,6 +380,7 @@ export async function atualizarVenda(
       total,
       forma_pagamento: input.formaPagamento,
       status: "concluida",
+      tipo_venda: input.tipoVenda,
     })
     .eq("id", vendaId);
 
