@@ -1,6 +1,8 @@
-import { createServerClient, type CookieMethodsServer } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/config";
+
+type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -24,7 +26,7 @@ export async function GET(request: Request) {
               return { name: name.trim(), value: rest.join("=") };
             }) ?? [];
         },
-        setAll(cookiesToSet: Parameters<CookieMethodsServer["setAll"]>[0]) {
+        setAll(cookiesToSet: CookieToSet[]) {
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           );
