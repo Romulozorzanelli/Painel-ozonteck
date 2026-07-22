@@ -34,7 +34,8 @@ export type Cliente = {
   email: string;
   origem: string;
   observacoes: string;
-  dataNascimento: string | null;
+  aniversarioDia: number | null;
+  aniversarioMes: number | null;
   proximoFollowup: string | null;
   criadoEm: string;
 };
@@ -92,7 +93,8 @@ function clienteFromRow(row: any): Cliente {
     email: row.email,
     origem: row.origem,
     observacoes: row.observacoes,
-    dataNascimento: row.data_nascimento,
+    aniversarioDia: row.aniversario_dia,
+    aniversarioMes: row.aniversario_mes,
     proximoFollowup: row.proximo_followup,
     criadoEm: row.criado_em,
   };
@@ -234,13 +236,8 @@ export async function getClientes(): Promise<Cliente[]> {
 
 export async function upsertCliente(cliente: Cliente): Promise<Cliente[]> {
   const supabase = createClient();
-  const { data: existente } = await supabase
-    .from("clientes")
-    .select("id")
-    .eq("id", cliente.id)
-    .maybeSingle();
 
-  if (existente) {
+  if (cliente.id) {
     await supabase
       .from("clientes")
       .update({
@@ -249,19 +246,21 @@ export async function upsertCliente(cliente: Cliente): Promise<Cliente[]> {
         email: cliente.email,
         origem: cliente.origem,
         observacoes: cliente.observacoes,
-        data_nascimento: cliente.dataNascimento || null,
+        aniversario_dia: cliente.aniversarioDia,
+        aniversario_mes: cliente.aniversarioMes,
         proximo_followup: cliente.proximoFollowup || null,
       })
       .eq("id", cliente.id);
   } else {
+    // Cliente novo: sem id ainda, deixa o banco gerar (default gen_random_uuid()).
     await supabase.from("clientes").insert({
-      id: cliente.id,
       nome: cliente.nome,
       telefone: cliente.telefone,
       email: cliente.email,
       origem: cliente.origem,
       observacoes: cliente.observacoes,
-      data_nascimento: cliente.dataNascimento || null,
+      aniversario_dia: cliente.aniversarioDia,
+      aniversario_mes: cliente.aniversarioMes,
       proximo_followup: cliente.proximoFollowup || null,
     });
   }
