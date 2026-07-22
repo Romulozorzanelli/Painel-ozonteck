@@ -593,6 +593,25 @@ button {
   cursor: pointer;
   padding: 2px 6px;
 }
+.profile-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 2rem;
+  font-weight: 500;
+  color: var(--gold);
+}
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 @media (min-width: 720px) {
   .main {
     max-width: 720px;
