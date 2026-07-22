@@ -519,6 +519,11 @@ button {
   top: 8px;
   right: 8px;
 }
+.stock-card-badge-left {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+}
 .stock-card-body {
   padding: 10px 12px 12px;
   display: flex;
