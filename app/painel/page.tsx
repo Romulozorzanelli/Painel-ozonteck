@@ -22,6 +22,7 @@ import {
   atualizarVenda,
   reativarVenda,
   cancelarVenda,
+  excluirVenda,
   getFinanceiro,
   addLancamento,
   removerLancamento,
@@ -1421,6 +1422,24 @@ function TabVendas({
                 </button>
               )}
             </div>
+            {detalhes.status === "cancelada" && (
+              <button
+                className="btn btn-danger btn-block"
+                style={{ marginTop: 8 }}
+                onClick={async () => {
+                  if (
+                    confirm(
+                      "Excluir este registro definitivamente? Essa ação não pode ser desfeita."
+                    )
+                  ) {
+                    setVendas(await excluirVenda(detalhes.id));
+                    setDetalhes(null);
+                  }
+                }}
+              >
+                Excluir registro
+              </button>
+            )}
           </div>
         </div>
       )}
