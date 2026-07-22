@@ -143,6 +143,16 @@ button {
   margin: 0;
   font-size: 0.86rem;
 }
+.page-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.page-header-row h1 {
+  margin: 0;
+}
 .kpi-scroll {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
