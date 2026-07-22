@@ -449,7 +449,7 @@ function TabEstoque() {
                     )}
                     {maisVendidosIds.has(p.id) && (
                       <span className="badge stock-card-badge-left" style={{ background: "var(--gold-soft)", color: "var(--gold)" }}>
-                        🔥 Mais vendido
+                        🔥
                       </span>
                     )}
                     <span className={"badge stock-card-badge " + status.cls}>
@@ -1323,6 +1323,9 @@ function TabVendas({
       new Date(v.data).toDateString() === new Date().toDateString()
   );
   const faturadoHoje = vendasHoje.reduce((s, v) => s + v.total, 0);
+  const totalAReceber = vendas
+    .filter((v) => v.status === "concluida" && v.formaPagamento === "A receber")
+    .reduce((s, v) => s + v.total, 0);
 
   if (carregando) {
     return <div className="empty-state">Carregando vendas...</div>;
@@ -1347,6 +1350,10 @@ function TabVendas({
         <div className="kpi-card">
           <div className="label">Total de vendas</div>
           <div className="value">{vendas.length}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="label">A receber</div>
+          <div className="value negative">{currency(totalAReceber)}</div>
         </div>
       </div>
 
