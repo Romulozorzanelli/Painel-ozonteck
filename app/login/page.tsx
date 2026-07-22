@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("erro") === "auth") {
+      setErro("Não foi possível concluir o login. Tente novamente.");
+    }
+  }, []);
 
   async function entrarComGoogle() {
     setErro("");
