@@ -23,6 +23,7 @@ import {
   reativarVenda,
   cancelarVenda,
   excluirVenda,
+  receberVenda,
   getFinanceiro,
   addLancamento,
   removerLancamento,
@@ -1186,6 +1187,8 @@ function TabVendas({
   const [sheetAberto, setSheetAberto] = useState(false);
   const [vendaEditando, setVendaEditando] = useState<Venda | null>(null);
   const [detalhes, setDetalhes] = useState<Venda | null>(null);
+  const [recebendo, setRecebendo] = useState<Venda | null>(null);
+  const [formaRecebimento, setFormaRecebimento] = useState("Pix");
   const [salvando, setSalvando] = useState(false);
 
   async function recarregar() {
@@ -1408,6 +1411,20 @@ function TabVendas({
               </div>
             </div>
 
+            {detalhes.status === "concluida" && detalhes.formaPagamento === "A receber" && (
+              <button
+                className="btn btn-primary btn-block"
+                style={{ marginBottom: 8 }}
+                onClick={() => {
+                  setRecebendo(detalhes);
+                  setFormaRecebimento("Pix");
+                  setDetalhes(null);
+                }}
+              >
+                Marcar como recebido
+              </button>
+            )}
+
             <div className="form-actions" style={{ marginTop: 0 }}>
               <button
                 className="btn btn-ghost"
@@ -1462,6 +1479,45 @@ function TabVendas({
                 Excluir registro
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {recebendo && (
+        <div className="sheet-overlay" onClick={() => setRecebendo(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <h2>Marcar como recebido</h2>
+            <p style={{ color: "var(--muted)", fontSize: "0.86rem", marginTop: -8, marginBottom: 16 }}>
+              {recebendo.clienteNome} · {currency(recebendo.total)}
+            </p>
+            <div className="form-row">
+              <label>Como foi recebido</label>
+              <select
+                className="select-input"
+                value={formaRecebimento}
+                onChange={(e) => setFormaRecebimento(e.target.value)}
+              >
+                <option>Pix</option>
+                <option>Dinheiro</option>
+                <option>Cartão de débito</option>
+                <option>Cartão de crédito</option>
+              </select>
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={() => setRecebendo(null)}>
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  setVendas(await receberVenda(recebendo.id, formaRecebimento));
+                  setRecebendo(null);
+                }}
+              >
+                Confirmar recebimento
+              </button>
+            </div>
           </div>
         </div>
       )}
