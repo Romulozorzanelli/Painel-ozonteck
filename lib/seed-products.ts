@@ -17,7 +17,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://new-cdn-ozonteck.s3.amazonaws.com/thumbnails/de87b3d7-d8c9-4fd1-832e-d459f5007dc4.webp",
     custo: 149.88,
-    preco: 299.77,
+    preco: 399.8,
     estoqueInicial: 0,
   },
   {
@@ -27,7 +27,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://new-cdn-ozonteck.s3.amazonaws.com/thumbnails/337f1d64-1cc9-498a-bef9-5f92bdf969f6.webp",
     custo: 87.25,
-    preco: 174.5,
+    preco: 224.5,
     estoqueInicial: 0,
   },
   {
@@ -37,7 +37,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://new-cdn-ozonteck.s3.amazonaws.com/thumbnails/41f0d392-5d3d-43b7-8510-1b4ce8f2ad30.webp",
     custo: 112.38,
-    preco: 224.75,
+    preco: 294.66,
     estoqueInicial: 0,
   },
   {
@@ -47,7 +47,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/aee76449-eff9-4d56-ae6d-29552a975433.webp",
     custo: 44.97,
-    preco: 89.95,
+    preco: 179.9,
     estoqueInicial: 0,
   },
   {
@@ -57,7 +57,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/610ec866-b07a-45d9-b41f-f3e109030a8d.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -67,7 +67,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/9f8705d9-3859-45e9-9d54-a894eff79a03.webp",
     custo: 44.97,
-    preco: 89.95,
+    preco: 179.9,
     estoqueInicial: 0,
   },
   {
@@ -77,7 +77,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/dd937f00-7138-4cc3-878c-bf295002ddfb.webp",
     custo: 44.97,
-    preco: 89.95,
+    preco: 179.9,
     estoqueInicial: 0,
   },
   {
@@ -87,7 +87,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/9355c559-da93-4a1b-9016-752847119709.webp",
     custo: 44.97,
-    preco: 89.95,
+    preco: 179.9,
     estoqueInicial: 0,
   },
   {
@@ -97,7 +97,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/975c7824-fda9-43f5-ae77-23a88fa5244b.webp",
     custo: 44.97,
-    preco: 89.95,
+    preco: 179.9,
     estoqueInicial: 0,
   },
   {
@@ -107,7 +107,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/63f6d161-653d-4596-a8d9-fb1a325543a3.webp",
     custo: 44.95,
-    preco: 89.95,
+    preco: 179.9,
     estoqueInicial: 0,
   },
   {
@@ -127,7 +127,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/268d2250-53d2-424e-8f17-d073a17be1f4.webp",
     custo: 44.97,
-    preco: 89.95,
+    preco: 179.9,
     estoqueInicial: 0,
   },
   {
@@ -137,7 +137,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/727c698a-f042-47c7-9cfe-9cb2ceb07422.webp",
     custo: 44.97,
-    preco: 89.95,
+    preco: 179.9,
     estoqueInicial: 0,
   },
   {
@@ -147,7 +147,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/e115b82d-fafb-4e9f-9961-3c652acefa82.webp",
     custo: 44.97,
-    preco: 89.95,
+    preco: 179.9,
     estoqueInicial: 0,
   },
   {
@@ -157,7 +157,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/30583f7b-9deb-4931-9588-dca09544e2ce.webp",
     custo: 44.97,
-    preco: 89.95,
+    preco: 179.9,
     estoqueInicial: 0,
   },
   {
@@ -167,7 +167,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/0f5da00a-b4ce-4fcd-8973-b34183a63a16.webp",
     custo: 89.95,
-    preco: 89.95,
+    preco: 179.9,
     estoqueInicial: 0,
   },
   {
@@ -177,7 +177,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: null,
     custo: 89.95,
-    preco: 89.95,
+    preco: 179.9,
     estoqueInicial: 0,
   },
   {
@@ -187,7 +187,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: null,
     custo: 99.9,
-    preco: 99.9,
+    preco: 299.9,
     estoqueInicial: 0,
   },
   {
@@ -197,7 +197,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/951ec347-3c45-475a-9467-020f27b09a61.webp",
     custo: 49.97,
-    preco: 99.95,
+    preco: 199.9,
     estoqueInicial: 0,
   },
   {
@@ -207,7 +207,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/b8d0900f-d9d2-45db-841f-8f1f88494eda.webp",
     custo: 49.97,
-    preco: 99.95,
+    preco: 199.9,
     estoqueInicial: 0,
   },
   {
@@ -217,7 +217,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/ff9570c1-c97a-4283-984c-e527ffb4f0fa.webp",
     custo: 39.95,
-    preco: 39.95,
+    preco: 79.9,
     estoqueInicial: 0,
   },
   {
@@ -227,7 +227,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/3eeb23f5-b44f-4ff0-9fb4-c551f467503d.webp",
     custo: 39.95,
-    preco: 39.95,
+    preco: 79.9,
     estoqueInicial: 0,
   },
   {
@@ -237,7 +237,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/10d6c443-a051-4644-8250-8db1515dc47d.webp",
     custo: 89.85,
-    preco: 89.85,
+    preco: 179.7,
     estoqueInicial: 0,
   },
   {
@@ -247,7 +247,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/dc71e5ec-37f2-4cb4-bce3-710f6e610093.webp",
     custo: 89.85,
-    preco: 89.85,
+    preco: 179.7,
     estoqueInicial: 0,
   },
   {
@@ -257,7 +257,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/0787e20f-a743-4416-9cad-9223db07b34e.webp",
     custo: 89.85,
-    preco: 89.85,
+    preco: 179.7,
     estoqueInicial: 0,
   },
   {
@@ -267,7 +267,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/a57840bc-9b85-42a3-bcbc-c17de12b4e95.webp",
     custo: 79.9,
-    preco: 79.9,
+    preco: 159.8,
     estoqueInicial: 0,
   },
   {
@@ -277,7 +277,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/1fb30281-2df2-4eb8-bdfa-777239bc8195.webp",
     custo: 49.97,
-    preco: 99.95,
+    preco: 199.9,
     estoqueInicial: 0,
   },
   {
@@ -287,7 +287,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/41523270-d314-4dc0-b280-8b170fc14852.webp",
     custo: 49.97,
-    preco: 99.95,
+    preco: 199.9,
     estoqueInicial: 0,
   },
   {
@@ -297,7 +297,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/19fa2b60-6627-477f-948f-2bdc2e2fb28e.webp",
     custo: 9.0,
-    preco: 18.0,
+    preco: 48.0,
     estoqueInicial: 0,
   },
   {
@@ -307,7 +307,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/8894a80f-ac84-4c6a-8a53-8722f91e9df9.webp",
     custo: 9.0,
-    preco: 18.0,
+    preco: 48.0,
     estoqueInicial: 0,
   },
   {
@@ -317,7 +317,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/e64e50e6-97dd-4817-934b-91f8dd88ff45.webp",
     custo: 9.0,
-    preco: 18.0,
+    preco: 48.0,
     estoqueInicial: 0,
   },
   {
@@ -327,7 +327,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/5f38abf2-38e9-4d50-8c45-6476fb0b130d.webp",
     custo: 9.0,
-    preco: 18.0,
+    preco: 48.0,
     estoqueInicial: 0,
   },
   {
@@ -337,7 +337,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/32a75fe8-96d5-44db-9e7d-7da56cdc4fc3.webp",
     custo: 3.33,
-    preco: 3.33,
+    preco: 10.0,
     estoqueInicial: 0,
   },
   {
@@ -347,7 +347,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/92682663-c09a-4f9d-9aa3-30431b6b4f2a.webp",
     custo: 59.95,
-    preco: 59.95,
+    preco: 119.9,
     estoqueInicial: 0,
   },
   {
@@ -357,7 +357,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/b5a51fc4-5d87-447d-b363-1dcb58dbd3f1.webp",
     custo: 5.0,
-    preco: 90.0,
+    preco: 180.0,
     estoqueInicial: 0,
   },
   {
@@ -367,7 +367,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/e965e224-4dc9-41e0-9bb8-2e5b490e9690.webp",
     custo: 5.0,
-    preco: 90.0,
+    preco: 180.0,
     estoqueInicial: 0,
   },
   {
@@ -377,7 +377,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/433a7b00-c293-40f5-8af8-c5d600ebb24a.webp",
     custo: 79.95,
-    preco: 79.95,
+    preco: 159.9,
     estoqueInicial: 0,
   },
   {
@@ -387,7 +387,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/790f44a9-78d1-40f1-bad0-c6aa2f750724.webp",
     custo: 79.95,
-    preco: 79.95,
+    preco: 159.9,
     estoqueInicial: 0,
   },
   {
@@ -397,7 +397,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/63369e9d-086a-41fa-841b-6a72268294ad.webp",
     custo: 5.0,
-    preco: 90.0,
+    preco: 180.0,
     estoqueInicial: 0,
   },
   {
@@ -407,7 +407,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/c28d8cc6-97ee-4e0a-86c4-1abcf43cde71.webp",
     custo: 5.0,
-    preco: 90.0,
+    preco: 180.0,
     estoqueInicial: 0,
   },
   {
@@ -417,7 +417,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/bf1a06ff-0f1c-4c83-a733-5e162c63711c.webp",
     custo: 5.0,
-    preco: 90.0,
+    preco: 180.0,
     estoqueInicial: 0,
   },
   {
@@ -427,7 +427,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/8cb39bf6-73bf-4ab8-9190-23a2a6ce3cc8.webp",
     custo: 5.0,
-    preco: 90.0,
+    preco: 180.0,
     estoqueInicial: 0,
   },
   {
@@ -437,7 +437,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/598de818-fe1d-4f98-9beb-0de9ee99dd7d.webp",
     custo: 0.0,
-    preco: 60.0,
+    preco: 120.0,
     estoqueInicial: 0,
   },
   {
@@ -447,7 +447,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/941e5b7b-b6b9-41f6-af99-5dba2cbc50c0.webp",
     custo: 14.97,
-    preco: 29.95,
+    preco: 59.9,
     estoqueInicial: 0,
   },
   {
@@ -457,7 +457,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/c580d9b5-dc61-4faa-96ba-9c40d7f0a09a.webp",
     custo: 3.33,
-    preco: 3.33,
+    preco: 10.0,
     estoqueInicial: 0,
   },
   {
@@ -467,7 +467,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/163a3f57-04b7-4080-bf9b-c6a2c9ca38b5.webp",
     custo: 59.95,
-    preco: 59.95,
+    preco: 119.9,
     estoqueInicial: 0,
   },
   {
@@ -477,7 +477,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/de34c1e0-bc2d-44b6-8a6a-3f5a0660bdb8.webp",
     custo: 99.9,
-    preco: 99.9,
+    preco: 299.9,
     estoqueInicial: 0,
   },
   {
@@ -487,7 +487,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/1275fbbd-e2ab-49fa-b83e-e11b3cad93e6.webp",
     custo: 99.9,
-    preco: 99.9,
+    preco: 299.9,
     estoqueInicial: 0,
   },
   {
@@ -497,7 +497,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/826a1703-1c71-48c9-924e-704696752865.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -507,7 +507,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/df72e498-cd22-4b71-916c-45bda2418f48.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -517,7 +517,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/4cceec52-928b-4083-bded-cba85bbb08db.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -527,7 +527,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/052b3e67-6bda-449e-bfbe-0762f305a784.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -537,7 +537,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/30c41535-e9cc-4922-b2a0-d40f94d63785.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -547,7 +547,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/7612a81b-2d68-4c9f-8067-85c612cdec00.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -557,7 +557,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/943dcf59-e725-4c2b-97ba-aed1b358442a.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -567,7 +567,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/442981f2-0379-4359-9ba3-cbb4f08dff45.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -577,7 +577,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/839e47c4-6bf1-4ca2-b7db-6d0d7d26f332.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -587,7 +587,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/1aacbc6e-c231-45c5-8333-2cf0dc339766.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -597,7 +597,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/b169daaa-7917-49a9-86de-fc2e51e0c27a.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -607,7 +607,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/ee1e0cb0-fd7a-4603-8afb-19e1fa293883.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -617,7 +617,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/4e02a338-3b86-4b38-a24c-cea730814782.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -627,7 +627,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/c539d678-1e82-432a-8bf3-4ddc26e93498.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -637,7 +637,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/a2f8f4bb-b03d-476a-aed6-786dfb213611.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -647,7 +647,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/5e977003-7eac-4d15-b8de-04b68da2dcd1.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -657,7 +657,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/647ed3b7-3ce8-4953-ad7b-1eef9cfed8b1.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -667,7 +667,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/0a4dc284-5b3a-4268-bd0a-8974e45267c1.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -677,7 +677,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/895bb1af-8194-4e58-9a5c-0e68393c4c54.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -687,7 +687,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/f71e9e9d-7003-4000-8108-32c73acc9bba.webp",
     custo: 59.95,
-    preco: 59.95,
+    preco: 119.9,
     estoqueInicial: 0,
   },
   {
@@ -697,7 +697,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/49c8a8bf-c7b3-4abc-bd82-d6f558fef407.webp",
     custo: 54.95,
-    preco: 54.95,
+    preco: 109.9,
     estoqueInicial: 0,
   },
   {
@@ -707,7 +707,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/857764fc-7d1e-4a5a-b54e-202dd938ab6d.webp",
     custo: 54.95,
-    preco: 54.95,
+    preco: 109.9,
     estoqueInicial: 0,
   },
   {
@@ -717,7 +717,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/95f0f90c-8b9f-4e3f-af0c-4d35f8f5180d.webp",
     custo: 54.95,
-    preco: 54.95,
+    preco: 109.9,
     estoqueInicial: 0,
   },
   {
@@ -727,7 +727,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/6d9461fb-a9ef-4480-ae2a-d067678565c1.webp",
     custo: 5.0,
-    preco: 90.0,
+    preco: 180.0,
     estoqueInicial: 0,
   },
   {
@@ -737,7 +737,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/d8068c35-7c14-4605-911c-8b7568f4a70e.webp",
     custo: 5.0,
-    preco: 90.0,
+    preco: 180.0,
     estoqueInicial: 0,
   },
   {
@@ -747,7 +747,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/e574da67-ab8b-4b15-936e-13679361bae0.webp",
     custo: 69.95,
-    preco: 69.95,
+    preco: 139.9,
     estoqueInicial: 0,
   },
   {
@@ -757,7 +757,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/a5e5c297-66c7-46c9-8306-9a4830190db9.webp",
     custo: 69.95,
-    preco: 69.95,
+    preco: 139.9,
     estoqueInicial: 0,
   },
   {
@@ -767,7 +767,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/7a0b6531-479f-42b6-bd29-0380ef633897.webp",
     custo: 59.95,
-    preco: 59.95,
+    preco: 119.9,
     estoqueInicial: 0,
   },
   {
@@ -777,7 +777,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/b9639347-d22d-41cf-9652-5df2e5b4d8b6.webp",
     custo: 54.95,
-    preco: 54.95,
+    preco: 109.9,
     estoqueInicial: 0,
   },
   {
@@ -787,7 +787,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/ca668d15-41ec-440f-9787-9d66e4c4325d.webp",
     custo: 0.0,
-    preco: 7.0,
+    preco: 14.0,
     estoqueInicial: 0,
   },
   {
@@ -797,7 +797,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/e9d1eeeb-b3f7-4171-8c52-da02147f8954.webp",
     custo: 79.95,
-    preco: 79.95,
+    preco: 159.9,
     estoqueInicial: 0,
   },
   {
@@ -807,7 +807,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/1be0e3f0-e92f-452d-990f-f4af7e6b4132.webp",
     custo: 87.95,
-    preco: 87.95,
+    preco: 175.9,
     estoqueInicial: 0,
   },
   {
@@ -817,7 +817,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/15d0e885-6389-4706-9a54-d9e372d35b13.webp",
     custo: 79.95,
-    preco: 79.95,
+    preco: 159.9,
     estoqueInicial: 0,
   },
   {
@@ -827,7 +827,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/cbc70975-adf8-4fb9-b8af-0055423cb2bf.webp",
     custo: 79.95,
-    preco: 79.95,
+    preco: 159.9,
     estoqueInicial: 0,
   },
   {
@@ -837,7 +837,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/be798165-3f0e-41fc-b8fd-71566849cebd.webp",
     custo: 79.95,
-    preco: 79.95,
+    preco: 159.9,
     estoqueInicial: 0,
   },
   {
@@ -847,7 +847,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/1d9c9d95-33a4-4db0-84b2-5d2c9d9aa952.webp",
     custo: 79.96,
-    preco: 79.96,
+    preco: 159.92,
     estoqueInicial: 0,
   },
   {
@@ -857,7 +857,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/900c89e8-f321-4d60-89f4-08665a00b48d.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -867,7 +867,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/3df52909-fe92-4163-8937-0ccb2e863d91.webp",
     custo: 7.5,
-    preco: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
   {
@@ -877,7 +877,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/3f8da304-bd20-4b19-a774-7872039c400e.webp",
     custo: 39.95,
-    preco: 39.95,
+    preco: 79.9,
     estoqueInicial: 0,
   },
   {
@@ -887,7 +887,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/88fa2405-4669-4c44-8dcb-44734327d325.webp",
     custo: 59.95,
-    preco: 59.95,
+    preco: 119.9,
     estoqueInicial: 0,
   },
   {
@@ -897,7 +897,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/0bdb2ca0-465f-4fa1-969e-f90dee5667ed.webp",
     custo: 52.5,
-    preco: 52.5,
+    preco: 105.0,
     estoqueInicial: 0,
   },
   {
@@ -907,7 +907,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/a319b9e9-800d-4c35-a0c8-cb4dc2a080e3.webp",
     custo: 79.95,
-    preco: 79.95,
+    preco: 159.9,
     estoqueInicial: 0,
   },
   {
@@ -917,7 +917,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/f47b80d6-580c-44d1-b28b-58da5dd2f7b3.webp",
     custo: 54.95,
-    preco: 54.95,
+    preco: 109.9,
     estoqueInicial: 0,
   },
   {
@@ -927,7 +927,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/d65b51ea-752d-4d8a-8828-ae021fb4d393.webp",
     custo: 59.95,
-    preco: 59.95,
+    preco: 119.9,
     estoqueInicial: 0,
   },
   {
@@ -937,7 +937,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: "https://ozon-faos-develop.s3.amazonaws.com/products/58865300-6188-4acc-8452-8b0a683440f8.webp",
     custo: 59.95,
-    preco: 59.95,
+    preco: 119.9,
     estoqueInicial: 0,
   },
   {
@@ -947,7 +947,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     descricaoCurta: "",
     imagem: null,
     custo: 54.95,
-    preco: 54.95,
+    preco: 109.9,
     estoqueInicial: 0,
   },
 ];
