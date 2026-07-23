@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 
 const LOGO_URL =
   "https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/brand-assets/Screenshot_20260722_100709_ChatGPT.jpg";
+const WHATSAPP_URL = "https://wa.me/5527988998483";
 
 export default function LoginPage() {
   const [carregando, setCarregando] = useState(false);
@@ -38,9 +39,18 @@ export default function LoginPage() {
         <img src={LOGO_URL} alt="Avance Vendas" className="login-logo" />
         <div className="login-brand">
           Avance Vendas
-          <span>Acesso restrito</span>
+          <span>Painel do revendedor</span>
         </div>
-        <p className="login-subtitle">Entre com sua conta Google para continuar.</p>
+        <p className="login-subtitle">
+          Estoque, clientes, vendas e financeiro da sua revenda em um só lugar.
+        </p>
+
+        <ul className="login-features">
+          <li>Estoque com controle de quantidade e alerta de reposição</li>
+          <li>Clientes e vendas, com histórico completo de cada um</li>
+          <li>Financeiro: entradas, saídas e saldo sempre atualizados</li>
+        </ul>
+
         {erro && <p className="login-error">{erro}</p>}
         <button
           className="btn btn-primary btn-block"
@@ -49,6 +59,15 @@ export default function LoginPage() {
         >
           {carregando ? "Redirecionando..." : "Entrar com Google"}
         </button>
+
+        <p className="login-hint">
+          Primeiro acesso? Depois de entrar, vamos pedir nome, WhatsApp e CPF
+          pra liberar seu painel.
+        </p>
+        <p className="login-privacy">
+          Seus dados ficam privados — cada conta só acessa as próprias
+          informações.
+        </p>
 
         <button
           type="button"
@@ -64,12 +83,25 @@ export default function LoginPage() {
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-handle" />
             <h2>Sobre o app</h2>
+            <p className="sheet-descricao">
+              Avance Vendas é o painel de gestão pra revendedores: estoque,
+              clientes, vendas e financeiro, tudo em um só lugar.
+            </p>
             <p style={{ color: "var(--muted)", fontSize: "0.9rem", lineHeight: 1.6 }}>
               Desenvolvido por{" "}
               <strong style={{ color: "var(--text)" }}>@romuloautomacoes</strong>.
             </p>
-            <p style={{ color: "var(--muted)", fontSize: "0.9rem", lineHeight: 1.6 }}>
-              Contato: (27) 98899-8483
+            <a
+              href={WHATSAPP_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="sheet-whatsapp-link"
+            >
+              Falar no WhatsApp: (27) 98899-8483
+            </a>
+            <p className="login-privacy">
+              Seus dados ficam privados — cada conta só acessa as próprias
+              informações.
             </p>
             <button
               className="btn btn-ghost btn-block"
