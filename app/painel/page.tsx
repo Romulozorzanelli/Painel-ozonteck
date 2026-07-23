@@ -48,12 +48,17 @@ function linkWhatsApp(telefone: string, mensagem: string): string {
 function montarMensagemPedido(venda: Venda): string {
   const itens = venda.itens.map((i) => `• ${i.quantidade}x ${i.nome}`).join("\n");
   const saudacao = venda.clienteNome && venda.clienteNome !== "Cliente avulso"
-    ? `Olá, ${venda.clienteNome}! 👋`
+    ? `Olá, ${primeiroNome(venda.clienteNome)}! 👋`
     : "Olá! 👋";
   return (
     `${saudacao}\n\nAqui está o resumo do seu pedido:\n\n${itens}\n\n` +
     `Total: ${currency(venda.total)}\n\nObrigado pela preferência! 💙`
   );
+}
+
+function primeiroNome(nomeCompleto: string): string {
+  const partes = nomeCompleto.trim().split(/\s+/);
+  return partes[0] || nomeCompleto;
 }
 
 function mensagemAniversario(nome: string): string {
@@ -62,13 +67,19 @@ function mensagemAniversario(nome: string): string {
 
 function mensagemRenovarPedido(nome: string, ultimoProduto?: string): string {
   const referencia = ultimoProduto
-    ? `Vi que você levou ${ultimoProduto} — já deu tempo de acabar?`
+    ? `Vi que você levou ${ultimoProduto}, já deu tempo de acabar?`
     : "Já deu tempo de acabar algum produto?";
   return `Oi ${nome}, tudo bem? Faz um tempinho desde seu último pedido. ${referencia} Posso te ajudar a repor quando quiser! 😊`;
 }
 
 function mensagemPosVenda(nome: string): string {
-  return `Oi ${nome}! Já faz alguns dias da sua última compra — queria saber como está sendo sua experiência com os produtos! Ficou alguma dúvida ou posso ajudar em algo? 💬`;
+  return `Oi ${nome}! Já faz alguns dias da sua última compra, queria saber como está sendo sua experiência com os produtos! Ficou alguma dúvida ou posso ajudar em algo? 💬`;
+}
+
+function gerarMensagem(tipo: TipoTarefa, nome: string, ultimoProduto?: string): string {
+  if (tipo === "aniversario") return mensagemAniversario(nome);
+  if (tipo === "renovar") return mensagemRenovarPedido(nome, ultimoProduto);
+  return mensagemPosVenda(nome);
 }
 
 function inicioDoDia(d: Date): Date {
@@ -197,6 +208,14 @@ function IconSair({ className }: { className?: string }) {
     </svg>
   );
 }
+function IconWhatsApp({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.9-4.45 9.9-9.91C21.96 6.45 17.5 2 12.04 2Zm5.8 14.02c-.24.68-1.4 1.32-1.94 1.4-.5.08-1.11.11-1.79-.11-.41-.13-.94-.3-1.62-.6-2.86-1.24-4.72-4.12-4.86-4.31-.14-.19-1.16-1.55-1.16-2.96 0-1.4.73-2.09 1-2.38.26-.28.57-.35.76-.35h.55c.18 0 .42-.07.65.5.24.58.82 2 .89 2.14.07.14.12.31.02.5-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.29-.12.56.16.28.72 1.18 1.55 1.92 1.07.95 1.96 1.24 2.24 1.38.28.14.44.12.6-.07.16-.19.68-.79.86-1.06.18-.28.36-.23.6-.14.24.09 1.53.72 1.79.85.26.14.44.2.5.31.07.12.07.65-.17 1.33Z" />
+    </svg>
+  );
+}
+
 function IconInicio({ className }: { className?: string }) {
   return (
     <svg
@@ -238,7 +257,8 @@ function TabInicio() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [expandido, setExpandido] = useState<string | null>(null);
+  const [tarefaAberta, setTarefaAberta] = useState<Tarefa | null>(null);
+  const [modeloSelecionado, setModeloSelecionado] = useState<TipoTarefa | null>(null);
   const [mensagensEditadas, setMensagensEditadas] = useState<Record<string, string>>({});
   const [dispensados, setDispensados] = useState<Set<string>>(new Set());
 
@@ -305,7 +325,7 @@ function TabInicio() {
       clienteNome: c.nome,
       telefone: c.telefone,
       dataReferencia: rotuloRelativo(proxima, agora),
-      mensagemPadrao: mensagemAniversario(c.nome),
+      mensagemPadrao: mensagemAniversario(primeiroNome(c.nome)),
     }));
 
   const tarefasRenovar: Tarefa[] = clientes
@@ -323,7 +343,7 @@ function TabInicio() {
         clienteNome: c.nome,
         telefone: c.telefone,
         dataReferencia: rotuloRelativo(new Date(c.proximoFollowup!), agora),
-        mensagemPadrao: mensagemRenovarPedido(c.nome, ultimoProduto),
+        mensagemPadrao: mensagemRenovarPedido(primeiroNome(c.nome), ultimoProduto),
       };
     });
 
@@ -344,7 +364,7 @@ function TabInicio() {
         clienteNome: cliente.nome,
         telefone: cliente.telefone,
         dataReferencia: `Venda de ${new Date(v.data).toLocaleDateString("pt-BR")}`,
-        mensagemPadrao: mensagemPosVenda(cliente.nome),
+        mensagemPadrao: mensagemPosVenda(primeiroNome(cliente.nome)),
         vendaId: v.id,
       };
     });
@@ -361,7 +381,12 @@ function TabInicio() {
     } else {
       setDispensados((prev) => new Set(prev).add(t.id));
     }
-    setExpandido(null);
+    setTarefaAberta(null);
+  }
+
+  function abrirTarefa(t: Tarefa) {
+    setTarefaAberta(t);
+    setModeloSelecionado(t.tipo);
   }
 
   return (
@@ -411,8 +436,6 @@ function TabInicio() {
         ) : (
           <div className="list">
             {tarefas.map((t) => {
-              const aberto = expandido === t.id;
-              const mensagem = mensagensEditadas[t.id] ?? t.mensagemPadrao;
               const badgeClasse =
                 t.tipo === "aniversario"
                   ? "badge-warn"
@@ -432,54 +455,101 @@ function TabInicio() {
                 <div
                   key={t.id}
                   className="row-card"
-                  style={{ flexDirection: "column", alignItems: "stretch" }}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => abrirTarefa(t)}
                 >
-                  <div
-                    style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
-                    onClick={() => setExpandido(aberto ? null : t.id)}
-                  >
-                    <div className="row-card-media-placeholder">{emoji}</div>
-                    <div className="row-card-body">
-                      <div className="row-card-title">{t.clienteNome}</div>
-                      <div className="row-card-sub">
-                        <span className={"badge " + badgeClasse}>{label}</span>{" "}
-                        · {t.dataReferencia}
-                      </div>
+                  <div className="row-card-media-placeholder">{emoji}</div>
+                  <div className="row-card-body">
+                    <div className="row-card-title">{t.clienteNome}</div>
+                    <div className="row-card-sub">
+                      <span className={"badge " + badgeClasse}>{label}</span>{" "}
+                      · {t.dataReferencia}
                     </div>
                   </div>
-
-                  {aberto && (
-                    <div className="row-card-expand">
-                      <textarea
-                        className="textarea-input"
-                        rows={4}
-                        value={mensagem}
-                        onChange={(e) =>
-                          setMensagensEditadas((m) => ({ ...m, [t.id]: e.target.value }))
-                        }
-                      />
-                      <div className="row-card-actions">
-                        <a
-                          className="btn btn-primary"
-                          href={linkWhatsApp(t.telefone, mensagem)}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={() => concluirTarefa(t)}
-                        >
-                          📱 Enviar no WhatsApp
-                        </a>
-                        <button className="btn btn-ghost" onClick={() => concluirTarefa(t)}>
-                          Marcar como feito
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {tarefaAberta && (
+        <div className="sheet-overlay" onClick={() => setTarefaAberta(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <div className="sheet-header">
+              <h2>{tarefaAberta.clienteNome}</h2>
+              <button className="sheet-close" onClick={() => setTarefaAberta(null)}>
+                ×
+              </button>
+            </div>
+
+            <div className="form-row">
+              <label>Tipo de mensagem</label>
+              <select
+                className="select-input"
+                value={modeloSelecionado ?? tarefaAberta.tipo}
+                onChange={(e) => {
+                  const novoTipo = e.target.value as TipoTarefa;
+                  setModeloSelecionado(novoTipo);
+                  const ultima = ultimaVendaPorCliente.get(tarefaAberta.clienteId);
+                  const novaMensagem = gerarMensagem(
+                    novoTipo,
+                    primeiroNome(tarefaAberta.clienteNome),
+                    ultima?.itens?.[0]?.nome
+                  );
+                  setMensagensEditadas((m) => ({ ...m, [tarefaAberta.id]: novaMensagem }));
+                }}
+              >
+                <option value="aniversario">Aniversário</option>
+                <option value="renovar">Renovar pedido</option>
+                <option value="pos_venda">Pós-venda</option>
+              </select>
+            </div>
+
+            <div className="form-row">
+              <label>Mensagem</label>
+              <textarea
+                className="textarea-input"
+                rows={6}
+                value={mensagensEditadas[tarefaAberta.id] ?? tarefaAberta.mensagemPadrao}
+                onChange={(e) =>
+                  setMensagensEditadas((m) => ({ ...m, [tarefaAberta.id]: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="row-card-actions" style={{ marginTop: 4 }}>
+              <a
+                className="btn btn-primary"
+                href={linkWhatsApp(
+                  tarefaAberta.telefone,
+                  mensagensEditadas[tarefaAberta.id] ?? tarefaAberta.mensagemPadrao
+                )}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Enviar no WhatsApp"
+                title="Enviar no WhatsApp"
+                onClick={() => concluirTarefa(tarefaAberta)}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                }}
+              >
+                <IconWhatsApp />
+              </a>
+              <button className="btn btn-ghost" onClick={() => concluirTarefa(tarefaAberta)}>
+                Marcar como feito
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
