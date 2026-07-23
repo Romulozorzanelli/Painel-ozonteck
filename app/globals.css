@@ -377,6 +377,10 @@ button {
   background: var(--danger-soft);
   color: var(--danger);
 }
+.badge-info {
+  background: var(--gold-soft);
+  color: var(--gold);
+}
 .sheet-overlay {
   position: fixed;
   inset: 0;
