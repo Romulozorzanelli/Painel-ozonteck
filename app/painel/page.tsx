@@ -71,6 +71,30 @@ function mensagemPosVenda(nome: string): string {
   return `Oi ${nome}! Já faz alguns dias da sua última compra — queria saber como está sendo sua experiência com os produtos! Ficou alguma dúvida ou posso ajudar em algo? 💬`;
 }
 
+function inicioDoDia(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function proximaOcorrenciaAniversario(dia: number, mes: number, hoje: Date): Date {
+  const hojeSemHora = inicioDoDia(hoje);
+  let data = new Date(hoje.getFullYear(), mes - 1, dia);
+  if (data < hojeSemHora) {
+    data = new Date(hoje.getFullYear() + 1, mes - 1, dia);
+  }
+  return data;
+}
+
+function rotuloRelativo(data: Date, hoje: Date): string {
+  const diffDias = Math.round(
+    (inicioDoDia(data).getTime() - inicioDoDia(hoje).getTime()) / 86400000
+  );
+  const formatada = data.toLocaleDateString("pt-BR");
+  if (diffDias < 0) return `Atrasado desde ${formatada}`;
+  if (diffDias === 0) return "Hoje";
+  if (diffDias === 1) return "Amanhã";
+  return `Em ${diffDias} dias (${formatada})`;
+}
+
 type TipoTarefa = "aniversario" | "renovar" | "pos_venda";
 
 type Tarefa = {
@@ -259,26 +283,35 @@ function TabInicio() {
     }
   }
 
-  const diaHoje = agora.getDate();
-  const mesHoje = agora.getMonth() + 1;
+  const JANELA_ANIVERSARIO_DIAS = 30;
 
   const tarefasAniversario: Tarefa[] = clientes
-    .filter(
-      (c) => c.telefone && c.aniversarioDia === diaHoje && c.aniversarioMes === mesHoje
-    )
-    .map((c) => ({
+    .filter((c) => c.telefone && c.aniversarioDia && c.aniversarioMes)
+    .map((c) => {
+      const proxima = proximaOcorrenciaAniversario(c.aniversarioDia!, c.aniversarioMes!, agora);
+      return { cliente: c, proxima };
+    })
+    .filter(({ proxima }) => {
+      const diffDias = Math.round(
+        (inicioDoDia(proxima).getTime() - inicioDoDia(agora).getTime()) / 86400000
+      );
+      return diffDias <= JANELA_ANIVERSARIO_DIAS;
+    })
+    .sort((a, b) => a.proxima.getTime() - b.proxima.getTime())
+    .map(({ cliente: c, proxima }) => ({
       id: `aniversario-${c.id}`,
       tipo: "aniversario" as const,
       clienteId: c.id,
       clienteNome: c.nome,
       telefone: c.telefone,
-      dataReferencia: "Hoje",
+      dataReferencia: rotuloRelativo(proxima, agora),
       mensagemPadrao: mensagemAniversario(c.nome),
     }));
 
   const tarefasRenovar: Tarefa[] = clientes
-    .filter(
-      (c) => c.telefone && c.proximoFollowup && new Date(c.proximoFollowup) <= agora
+    .filter((c) => c.telefone && c.proximoFollowup)
+    .sort(
+      (a, b) => new Date(a.proximoFollowup!).getTime() - new Date(b.proximoFollowup!).getTime()
     )
     .map((c) => {
       const ultima = ultimaVendaPorCliente.get(c.id);
@@ -289,7 +322,7 @@ function TabInicio() {
         clienteId: c.id,
         clienteNome: c.nome,
         telefone: c.telefone,
-        dataReferencia: new Date(c.proximoFollowup!).toLocaleDateString("pt-BR"),
+        dataReferencia: rotuloRelativo(new Date(c.proximoFollowup!), agora),
         mensagemPadrao: mensagemRenovarPedido(c.nome, ultimoProduto),
       };
     });
@@ -366,13 +399,13 @@ function TabInicio() {
       </div>
 
       <div className="panel-card" style={{ marginTop: 16 }}>
-        <h2 className="panel-title">Tarefas de hoje</h2>
+        <h2 className="panel-title">Tarefas</h2>
         {tarefas.length === 0 ? (
           <div className="empty-state">
             <div className="title">Nenhuma tarefa por aqui 🎉</div>
             <p>
-              Aniversários, renovações de pedido e follow-ups de pós-venda
-              aparecem aqui quando surgirem.
+              Aniversários dos próximos 30 dias, follow-ups agendados e
+              pós-vendas pendentes aparecem aqui.
             </p>
           </div>
         ) : (
