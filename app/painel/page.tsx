@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -1855,6 +1855,9 @@ const GRADUACOES = [
   "Master Gold",
 ];
 
+const CROP_BOX = 260;
+const CROP_SAIDA = 480;
+
 function TabPerfil() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -1871,6 +1874,18 @@ function TabPerfil() {
   const [graduacao, setGraduacao] = useState("");
   const [metaPontuacao, setMetaPontuacao] = useState(0);
   const [metaVenda, setMetaVenda] = useState(0);
+
+  // Recorte de foto
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const arrastoRef = useRef<{
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+  } | null>(null);
 
   useEffect(() => {
     getPerfil()
@@ -1890,19 +1905,114 @@ function TabPerfil() {
       .finally(() => setCarregando(false));
   }, []);
 
-  async function trocarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+  const baseScale =
+    imgNatural.w > 0 && imgNatural.h > 0
+      ? Math.max(CROP_BOX / imgNatural.w, CROP_BOX / imgNatural.h)
+      : 0;
+
+  function clampPos(p: { x: number; y: number }, z: number) {
+    const scale = baseScale * z;
+    const dw = imgNatural.w * scale;
+    const dh = imgNatural.h * scale;
+    const maxX = Math.max(0, (dw - CROP_BOX) / 2);
+    const maxY = Math.max(0, (dh - CROP_BOX) / 2);
+    return {
+      x: Math.min(maxX, Math.max(-maxX, p.x)),
+      y: Math.min(maxY, Math.max(-maxY, p.y)),
+    };
+  }
+
+  function selecionarArquivo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
     setErro("");
+    setZoom(1);
+    setPos({ x: 0, y: 0 });
+    setImgNatural({ w: 0, h: 0 });
+    setPreviewUrl(URL.createObjectURL(file));
+  }
+
+  function fecharRecorte() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setImgNatural({ w: 0, h: 0 });
+  }
+
+  function onPointerDownCrop(e: React.PointerEvent) {
+    (e.target as Element).setPointerCapture(e.pointerId);
+    arrastoRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: pos.x,
+      origY: pos.y,
+    };
+  }
+
+  function onPointerMoveCrop(e: React.PointerEvent) {
+    if (!arrastoRef.current) return;
+    const dx = e.clientX - arrastoRef.current.startX;
+    const dy = e.clientY - arrastoRef.current.startY;
+    setPos(
+      clampPos(
+        { x: arrastoRef.current.origX + dx, y: arrastoRef.current.origY + dy },
+        zoom
+      )
+    );
+  }
+
+  function onPointerUpCrop() {
+    arrastoRef.current = null;
+  }
+
+  async function confirmarRecorte() {
+    if (!previewUrl || imgNatural.w === 0) return;
     setEnviandoFoto(true);
+    setErro("");
     try {
-      const url = await uploadFotoPerfil(file);
+      const img = new window.Image();
+      img.src = previewUrl;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      const scale = baseScale * zoom;
+      const dw = imgNatural.w * scale;
+      const dh = imgNatural.h * scale;
+      const topLeftX = CROP_BOX / 2 + pos.x - dw / 2;
+      const topLeftY = CROP_BOX / 2 + pos.y - dh / 2;
+      const ratio = CROP_SAIDA / CROP_BOX;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = CROP_SAIDA;
+      canvas.height = CROP_SAIDA;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas indisponível");
+      ctx.drawImage(
+        img,
+        0,
+        0,
+        imgNatural.w,
+        imgNatural.h,
+        topLeftX * ratio,
+        topLeftY * ratio,
+        dw * ratio,
+        dh * ratio
+      );
+
+      const blob: Blob | null = await new Promise((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.92)
+      );
+      if (!blob) throw new Error("Falha ao gerar imagem");
+
+      const url = await uploadFotoPerfil(blob);
       setFoto(url);
+      fecharRecorte();
     } catch {
       setErro("Não foi possível enviar a foto. Tente novamente.");
     } finally {
       setEnviandoFoto(false);
-      e.target.value = "";
     }
   }
 
@@ -1967,17 +2077,86 @@ function TabPerfil() {
             )}
           </div>
           <label className="btn btn-ghost btn-sm" style={{ cursor: "pointer" }}>
-            {enviandoFoto ? "Enviando..." : "Trocar foto"}
+            Trocar foto
             <input
               type="file"
               accept="image/*"
-              onChange={trocarFoto}
-              disabled={enviandoFoto}
+              onChange={selecionarArquivo}
               style={{ display: "none" }}
             />
           </label>
         </div>
       </div>
+
+      {previewUrl && (
+        <div className="sheet-overlay" onClick={fecharRecorte}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <h2>Ajustar foto</h2>
+            <p style={{ color: "var(--muted)", fontSize: "0.82rem", marginTop: -8, marginBottom: 14 }}>
+              Arraste para posicionar e use o controle para dar zoom.
+            </p>
+
+            <div
+              className="crop-box"
+              onPointerDown={onPointerDownCrop}
+              onPointerMove={onPointerMoveCrop}
+              onPointerUp={onPointerUpCrop}
+              onPointerLeave={onPointerUpCrop}
+            >
+              <img
+                src={previewUrl}
+                alt="Pré-visualização"
+                draggable={false}
+                onLoad={(e) => {
+                  const w = e.currentTarget.naturalWidth;
+                  const h = e.currentTarget.naturalHeight;
+                  setImgNatural({ w, h });
+                  setPos({ x: 0, y: 0 });
+                }}
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  width: imgNatural.w > 0 ? imgNatural.w * baseScale * zoom : "100%",
+                  height: imgNatural.h > 0 ? imgNatural.h * baseScale * zoom : "100%",
+                  transform: `translate(-50%, -50%) translate(${pos.x}px, ${pos.y}px)`,
+                  maxWidth: "none",
+                }}
+              />
+            </div>
+
+            <div style={{ margin: "16px 4px" }}>
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.01}
+                value={zoom}
+                onChange={(e) => {
+                  const z = Number(e.target.value);
+                  setZoom(z);
+                  setPos((p) => clampPos(p, z));
+                }}
+                style={{ width: "100%" }}
+              />
+            </div>
+
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={fecharRecorte} disabled={enviandoFoto}>
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={confirmarRecorte}
+                disabled={enviandoFoto || imgNatural.w === 0}
+              >
+                {enviandoFoto ? "Enviando..." : "Usar esta foto"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {erro && <div className="login-error" style={{ marginBottom: 12 }}>{erro}</div>}
       {sucesso && (
