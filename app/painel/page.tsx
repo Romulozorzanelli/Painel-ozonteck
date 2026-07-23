@@ -31,6 +31,8 @@ import {
   atualizarPerfil,
   uploadFotoPerfil,
   validarCpf,
+  marcarPosVendaContatado,
+  limparFollowupCliente,
 } from "@/lib/store";
 import { extrairItensNotaFiscal, casarComCatalogo, type ItemNotaFiscal } from "@/lib/nota-fiscal";
 
@@ -53,6 +55,34 @@ function montarMensagemPedido(venda: Venda): string {
     `Total: ${currency(venda.total)}\n\nObrigado pela preferência! 💙`
   );
 }
+
+function mensagemAniversario(nome: string): string {
+  return `Oi ${nome}! 🎉 Passando aqui pra desejar um feliz aniversário! Que seu dia seja ótimo. Qualquer coisa que precisar, é só chamar! 💛`;
+}
+
+function mensagemRenovarPedido(nome: string, ultimoProduto?: string): string {
+  const referencia = ultimoProduto
+    ? `Vi que você levou ${ultimoProduto} — já deu tempo de acabar?`
+    : "Já deu tempo de acabar algum produto?";
+  return `Oi ${nome}, tudo bem? Faz um tempinho desde seu último pedido. ${referencia} Posso te ajudar a repor quando quiser! 😊`;
+}
+
+function mensagemPosVenda(nome: string): string {
+  return `Oi ${nome}! Já faz alguns dias da sua última compra — queria saber como está sendo sua experiência com os produtos! Ficou alguma dúvida ou posso ajudar em algo? 💬`;
+}
+
+type TipoTarefa = "aniversario" | "renovar" | "pos_venda";
+
+type Tarefa = {
+  id: string;
+  tipo: TipoTarefa;
+  clienteId: string;
+  clienteNome: string;
+  telefone: string;
+  dataReferencia: string;
+  mensagemPadrao: string;
+  vendaId?: string;
+};
 
 const LOGO_URL =
   "https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/brand-assets/Screenshot_20260722_100709_ChatGPT.jpg";
@@ -184,6 +214,9 @@ function TabInicio() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [expandido, setExpandido] = useState<string | null>(null);
+  const [mensagensEditadas, setMensagensEditadas] = useState<Record<string, string>>({});
+  const [dispensados, setDispensados] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     Promise.all([getProdutos(), getClientes(), getVendas()])
@@ -215,6 +248,88 @@ function TabInicio() {
     vendasConcluidas.length > 0
       ? vendasConcluidas.reduce((s, v) => s + v.total, 0) / vendasConcluidas.length
       : 0;
+
+  // Última venda concluída por cliente, pra citar o produto na mensagem de renovação.
+  const ultimaVendaPorCliente = new Map<string, Venda>();
+  for (const v of vendasConcluidas) {
+    if (!v.clienteId) continue;
+    const atual = ultimaVendaPorCliente.get(v.clienteId);
+    if (!atual || new Date(v.data) > new Date(atual.data)) {
+      ultimaVendaPorCliente.set(v.clienteId, v);
+    }
+  }
+
+  const diaHoje = agora.getDate();
+  const mesHoje = agora.getMonth() + 1;
+
+  const tarefasAniversario: Tarefa[] = clientes
+    .filter(
+      (c) => c.telefone && c.aniversarioDia === diaHoje && c.aniversarioMes === mesHoje
+    )
+    .map((c) => ({
+      id: `aniversario-${c.id}`,
+      tipo: "aniversario" as const,
+      clienteId: c.id,
+      clienteNome: c.nome,
+      telefone: c.telefone,
+      dataReferencia: "Hoje",
+      mensagemPadrao: mensagemAniversario(c.nome),
+    }));
+
+  const tarefasRenovar: Tarefa[] = clientes
+    .filter(
+      (c) => c.telefone && c.proximoFollowup && new Date(c.proximoFollowup) <= agora
+    )
+    .map((c) => {
+      const ultima = ultimaVendaPorCliente.get(c.id);
+      const ultimoProduto = ultima?.itens?.[0]?.nome;
+      return {
+        id: `renovar-${c.id}`,
+        tipo: "renovar" as const,
+        clienteId: c.id,
+        clienteNome: c.nome,
+        telefone: c.telefone,
+        dataReferencia: new Date(c.proximoFollowup!).toLocaleDateString("pt-BR"),
+        mensagemPadrao: mensagemRenovarPedido(c.nome, ultimoProduto),
+      };
+    });
+
+  const tarefasPosVenda: Tarefa[] = vendasConcluidas
+    .filter((v) => {
+      if (v.posVendaContatado || !v.clienteId) return false;
+      const cliente = clientes.find((c) => c.id === v.clienteId);
+      if (!cliente?.telefone) return false;
+      const dias = (agora.getTime() - new Date(v.data).getTime()) / 86400000;
+      return dias >= 3;
+    })
+    .map((v) => {
+      const cliente = clientes.find((c) => c.id === v.clienteId)!;
+      return {
+        id: `posvenda-${v.id}`,
+        tipo: "pos_venda" as const,
+        clienteId: cliente.id,
+        clienteNome: cliente.nome,
+        telefone: cliente.telefone,
+        dataReferencia: `Venda de ${new Date(v.data).toLocaleDateString("pt-BR")}`,
+        mensagemPadrao: mensagemPosVenda(cliente.nome),
+        vendaId: v.id,
+      };
+    });
+
+  const tarefas = [...tarefasAniversario, ...tarefasRenovar, ...tarefasPosVenda].filter(
+    (t) => !dispensados.has(t.id)
+  );
+
+  async function concluirTarefa(t: Tarefa) {
+    if (t.tipo === "renovar") {
+      setClientes(await limparFollowupCliente(t.clienteId));
+    } else if (t.tipo === "pos_venda" && t.vendaId) {
+      setVendas(await marcarPosVendaContatado(t.vendaId));
+    } else {
+      setDispensados((prev) => new Set(prev).add(t.id));
+    }
+    setExpandido(null);
+  }
 
   return (
     <div>
@@ -248,6 +363,89 @@ function TabInicio() {
           <div className="label">Lucro potencial</div>
           <div className="value positive">{currency(lucroPotencial)}</div>
         </div>
+      </div>
+
+      <div className="panel-card" style={{ marginTop: 16 }}>
+        <h2 className="panel-title">Tarefas de hoje</h2>
+        {tarefas.length === 0 ? (
+          <div className="empty-state">
+            <div className="title">Nenhuma tarefa por aqui 🎉</div>
+            <p>
+              Aniversários, renovações de pedido e follow-ups de pós-venda
+              aparecem aqui quando surgirem.
+            </p>
+          </div>
+        ) : (
+          <div className="list">
+            {tarefas.map((t) => {
+              const aberto = expandido === t.id;
+              const mensagem = mensagensEditadas[t.id] ?? t.mensagemPadrao;
+              const badgeClasse =
+                t.tipo === "aniversario"
+                  ? "badge-warn"
+                  : t.tipo === "renovar"
+                  ? "badge-low"
+                  : "badge-ok";
+              const label =
+                t.tipo === "aniversario"
+                  ? "Aniversário"
+                  : t.tipo === "renovar"
+                  ? "Renovar pedido"
+                  : "Pós-venda";
+              const emoji =
+                t.tipo === "aniversario" ? "🎂" : t.tipo === "renovar" ? "🔁" : "💬";
+
+              return (
+                <div
+                  key={t.id}
+                  className="row-card"
+                  style={{ flexDirection: "column", alignItems: "stretch" }}
+                >
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
+                    onClick={() => setExpandido(aberto ? null : t.id)}
+                  >
+                    <div className="row-card-media-placeholder">{emoji}</div>
+                    <div className="row-card-body">
+                      <div className="row-card-title">{t.clienteNome}</div>
+                      <div className="row-card-sub">
+                        <span className={"badge " + badgeClasse}>{label}</span>{" "}
+                        · {t.dataReferencia}
+                      </div>
+                    </div>
+                  </div>
+
+                  {aberto && (
+                    <div className="row-card-expand">
+                      <textarea
+                        className="textarea-input"
+                        rows={4}
+                        value={mensagem}
+                        onChange={(e) =>
+                          setMensagensEditadas((m) => ({ ...m, [t.id]: e.target.value }))
+                        }
+                      />
+                      <div className="row-card-actions">
+                        <a
+                          className="btn btn-primary"
+                          href={linkWhatsApp(t.telefone, mensagem)}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={() => concluirTarefa(t)}
+                        >
+                          📱 Enviar no WhatsApp
+                        </a>
+                        <button className="btn btn-ghost" onClick={() => concluirTarefa(t)}>
+                          Marcar como feito
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
