@@ -617,6 +617,21 @@ button {
   height: 100%;
   object-fit: cover;
 }
+.crop-box {
+  width: 260px;
+  height: 260px;
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+  margin: 0 auto;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  touch-action: none;
+  cursor: grab;
+}
+.crop-box:active {
+  cursor: grabbing;
+}
 @media (min-width: 720px) {
   .main {
     max-width: 720px;
