@@ -38,6 +38,7 @@ export type Cliente = {
   aniversarioMes: number | null;
   proximoFollowup: string | null;
   criadoEm: string;
+  boasVindasContatado: boolean;
 };
 
 export type ItemVenda = {
@@ -99,6 +100,7 @@ function clienteFromRow(row: any): Cliente {
     aniversarioMes: row.aniversario_mes,
     proximoFollowup: row.proximo_followup,
     criadoEm: row.criado_em,
+    boasVindasContatado: row.boas_vindas_contatado ?? false,
   };
 }
 
@@ -563,6 +565,12 @@ export async function marcarPosVendaContatado(id: string): Promise<Venda[]> {
 export async function limparFollowupCliente(id: string): Promise<Cliente[]> {
   const supabase = createClient();
   await supabase.from("clientes").update({ proximo_followup: null }).eq("id", id);
+  return getClientes();
+}
+
+export async function marcarBoasVindasContatado(id: string): Promise<Cliente[]> {
+  const supabase = createClient();
+  await supabase.from("clientes").update({ boas_vindas_contatado: true }).eq("id", id);
   return getClientes();
 }
 
