@@ -40,15 +40,45 @@ function montarLinhas(itens: ItemPosicionado[]): string[] {
   );
 }
 
-// Linha de item da nota, ex:
+// Linha de item da nota (DANFE), ex:
 // "40713 SOUL 17 ML 33030020 000 5.102 UN 13,0000 15,0000 195,00 195,00 33,15 0,00 17,0000 0,00"
-const REGEX_ITEM =
+const REGEX_ITEM_DANFE =
   /^(\d{4,6})\s+(.+?)\s+(\d{7,8})\s+(\d{3})\s+([\d.]{4,6})\s+UN\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/;
+
+// Linha de item do "Espelho do pedido" (documento alternativo que aparece
+// quando o usuário salva a página como PDF pelo navegador — comum em iPhone,
+// que não baixa a nota fiscal oficial mas sim essa versão renderizada pelo
+// motor de PDF do próprio navegador/Chrome/Android via "Salvar como PDF").
+// Colunas: Quantidade | Código | Nome do produto | Valor Unitário | Subtotal
+// ex: "3 41727 AALIYAH 17 ML R$ 18,00 R$ 54,00"
+const REGEX_ITEM_ESPELHO =
+  /^(\d+)\s+(\d{4,6})\s+(.+?)\s+R\$\s*([\d.,]+)\s+R\$\s*([\d.,]+)$/;
+
+export type FormatoNotaFiscal = "danfe" | "espelho" | "desconhecido";
+
+export type ResultadoExtracaoNotaFiscal = {
+  itens: ItemNotaFiscal[];
+  formato: FormatoNotaFiscal;
+};
+
+function tentarLinhaDanfe(linha: string): ItemNotaFiscal | null {
+  const m = linha.match(REGEX_ITEM_DANFE);
+  if (!m) return null;
+  const [, codigo, descricao, , , , qtdeStr] = m;
+  return { codigo, descricao: descricao.trim(), quantidade: parseNumeroBr(qtdeStr) };
+}
+
+function tentarLinhaEspelho(linha: string): ItemNotaFiscal | null {
+  const m = linha.match(REGEX_ITEM_ESPELHO);
+  if (!m) return null;
+  const [, qtdeStr, codigo, descricao] = m;
+  return { codigo, descricao: descricao.trim(), quantidade: parseNumeroBr(qtdeStr) };
+}
 
 export async function extrairItensNotaFiscal(
   file: File,
   onProgresso?: (paginaAtual: number, totalPaginas: number) => void
-): Promise<ItemNotaFiscal[]> {
+): Promise<ResultadoExtracaoNotaFiscal> {
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
@@ -56,6 +86,8 @@ export async function extrairItensNotaFiscal(
   const doc = await pdfjs.getDocument({ data: buffer }).promise;
 
   const itensEncontrados: ItemNotaFiscal[] = [];
+  let acertosDanfe = 0;
+  let acertosEspelho = 0;
 
   for (let n = 1; n <= doc.numPages; n++) {
     const pagina = await doc.getPage(n);
@@ -72,20 +104,35 @@ export async function extrairItensNotaFiscal(
     const linhas = montarLinhas(posicionados);
 
     for (const linha of linhas) {
-      const m = linha.match(REGEX_ITEM);
-      if (!m) continue;
-      const [, codigo, descricao, , , , qtdeStr] = m;
-      itensEncontrados.push({
-        codigo,
-        descricao: descricao.trim(),
-        quantidade: parseNumeroBr(qtdeStr),
-      });
+      const danfe = tentarLinhaDanfe(linha);
+      if (danfe) {
+        itensEncontrados.push(danfe);
+        acertosDanfe++;
+        continue;
+      }
+
+      const espelho = tentarLinhaEspelho(linha);
+      if (espelho) {
+        itensEncontrados.push(espelho);
+        acertosEspelho++;
+      }
     }
 
     onProgresso?.(n, doc.numPages);
   }
 
-  return itensEncontrados;
+  // Se o PDF tem texto de sobra mas nenhuma linha bateu com nenhum dos dois
+  // formatos conhecidos, é um terceiro formato que ainda não reconhecemos
+  // (em vez de simplesmente "0 itens", sinaliza isso pra UI dar um aviso
+  // mais preciso em vez de deixar parecer nota vazia).
+  const formato: FormatoNotaFiscal =
+    acertosDanfe >= acertosEspelho && acertosDanfe > 0
+      ? "danfe"
+      : acertosEspelho > 0
+      ? "espelho"
+      : "desconhecido";
+
+  return { itens: itensEncontrados, formato };
 }
 
 function normalizar(s: string): string {
