@@ -720,19 +720,19 @@ export async function atualizarPerfil(dados: {
   return perfilFromRow(data);
 }
 
-export async function uploadFotoPerfil(file: File): Promise<string> {
+export async function uploadFotoPerfil(blob: Blob): Promise<string> {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Usuário não autenticado.");
 
-  const extensao = file.name.split(".").pop() || "jpg";
-  const caminho = `${user.id}/foto-${Date.now()}.${extensao}`;
+  // Sempre exportado como JPEG pelo recorte no navegador (canvas).
+  const caminho = `${user.id}/foto-${Date.now()}.jpg`;
 
   const { error } = await supabase.storage
     .from("perfil-fotos")
-    .upload(caminho, file, { upsert: true });
+    .upload(caminho, blob, { upsert: true, contentType: "image/jpeg" });
   if (error) throw error;
 
   const { data } = supabase.storage.from("perfil-fotos").getPublicUrl(caminho);
