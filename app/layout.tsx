@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import PwaRegister from "./pwa-register";
+import VersionCheck from "./version-check";
 
 const LOGO_URL =
   "https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/brand-assets/Screenshot_20260722_100709_ChatGPT.jpg";
@@ -54,6 +55,7 @@ export default function RootLayout({
       <body>
         {children}
         <PwaRegister />
+        <VersionCheck />
       </body>
     </html>
   );
