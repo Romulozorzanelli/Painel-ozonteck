@@ -37,6 +37,23 @@ import { extrairItensNotaFiscal, casarComCatalogo, type ItemNotaFiscal } from "@
 const currency = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+function linkWhatsApp(telefone: string, mensagem: string): string {
+  const digitos = telefone.replace(/\D/g, "");
+  const comPais = digitos.length <= 11 ? `55${digitos}` : digitos;
+  return `https://wa.me/${comPais}?text=${encodeURIComponent(mensagem)}`;
+}
+
+function montarMensagemPedido(venda: Venda): string {
+  const itens = venda.itens.map((i) => `• ${i.quantidade}x ${i.nome}`).join("\n");
+  const saudacao = venda.clienteNome && venda.clienteNome !== "Cliente avulso"
+    ? `Olá, ${venda.clienteNome}! 👋`
+    : "Olá! 👋";
+  return (
+    `${saudacao}\n\nAqui está o resumo do seu pedido:\n\n${itens}\n\n` +
+    `Total: ${currency(venda.total)}\n\nObrigado pela preferência! 💙`
+  );
+}
+
 const LOGO_URL =
   "https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/brand-assets/Screenshot_20260722_100709_ChatGPT.jpg";
 
@@ -804,7 +821,15 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
 
 /* ---------------------------- Clientes ---------------------------- */
 
-function TabClientes({ onNovaVenda }: { onNovaVenda: (clienteId: string) => void }) {
+function TabClientes({
+  onNovaVenda,
+  clienteParaEditar,
+  aoConsumirClienteParaEditar,
+}: {
+  onNovaVenda: (clienteId: string) => void;
+  clienteParaEditar?: string | null;
+  aoConsumirClienteParaEditar?: () => void;
+}) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -820,6 +845,18 @@ function TabClientes({ onNovaVenda }: { onNovaVenda: (clienteId: string) => void
       })
       .finally(() => setCarregando(false));
   }, []);
+
+  useEffect(() => {
+    if (clienteParaEditar && clientes.length > 0) {
+      const cliente = clientes.find((c) => c.id === clienteParaEditar);
+      if (cliente) {
+        setDetalhes(null);
+        setEditando({ ...cliente });
+      }
+      aoConsumirClienteParaEditar?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clienteParaEditar, clientes]);
 
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -1161,11 +1198,13 @@ function TabVendas({
   aoConsumirPreSelecao,
   produtoPreSelecionado,
   aoConsumirProdutoPreSelecao,
+  onCompletarWhatsapp,
 }: {
   clientePreSelecionado?: string | null;
   aoConsumirPreSelecao?: () => void;
   produtoPreSelecionado?: string | null;
   aoConsumirProdutoPreSelecao?: () => void;
+  onCompletarWhatsapp: (clienteId: string) => void;
 }) {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -1241,8 +1280,10 @@ function TabVendas({
 
   const produtosFiltrados = useMemo(() => {
     const termo = buscaProduto.trim().toLowerCase();
-    const ativos = produtos.filter((p) => p.ativo);
-    return termo ? ativos.filter((p) => p.nome.toLowerCase().includes(termo)) : ativos;
+    const disponiveis = produtos.filter((p) => p.ativo && p.estoque > 0);
+    return termo
+      ? disponiveis.filter((p) => p.nome.toLowerCase().includes(termo))
+      : disponiveis;
   }, [produtos, buscaProduto]);
 
   function ajustarQtdCarrinho(produtoId: string, delta: number) {
@@ -1429,6 +1470,44 @@ function TabVendas({
                 </span>
               </div>
             </div>
+
+            {(() => {
+              const cliente = detalhes.clienteId
+                ? clientes.find((c) => c.id === detalhes.clienteId)
+                : null;
+              if (!detalhes.clienteId) {
+                return (
+                  <p style={{ color: "var(--muted)", fontSize: "0.8rem", marginBottom: 12 }}>
+                    Venda sem cliente associado — não é possível enviar resumo.
+                  </p>
+                );
+              }
+              if (cliente && cliente.telefone) {
+                return (
+                  <a
+                    href={linkWhatsApp(cliente.telefone, montarMensagemPedido(detalhes))}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-ghost btn-block"
+                    style={{ marginBottom: 12, textDecoration: "none" }}
+                  >
+                    📱 Enviar resumo no WhatsApp
+                  </a>
+                );
+              }
+              return (
+                <button
+                  className="btn btn-ghost btn-block"
+                  style={{ marginBottom: 12 }}
+                  onClick={() => {
+                    onCompletarWhatsapp(detalhes.clienteId as string);
+                    setDetalhes(null);
+                  }}
+                >
+                  Cliente sem WhatsApp — completar cadastro
+                </button>
+              );
+            })()}
 
             {detalhes.status === "concluida" && detalhes.formaPagamento === "A receber" && (
               <button
@@ -2510,6 +2589,7 @@ export default function PainelPage() {
   const [aba, setAba] = useState<(typeof TABS)[number]["id"]>("inicio");
   const [vendaClienteId, setVendaClienteId] = useState<string | null>(null);
   const [vendaProdutoId, setVendaProdutoId] = useState<string | null>(null);
+  const [clienteEditarId, setClienteEditarId] = useState<string | null>(null);
   const router = useRouter();
   const atual = TABS.find((t) => t.id === aba)!;
 
@@ -2578,6 +2658,8 @@ export default function PainelPage() {
               setVendaClienteId(clienteId);
               setAba("vendas");
             }}
+            clienteParaEditar={clienteEditarId}
+            aoConsumirClienteParaEditar={() => setClienteEditarId(null)}
           />
         )}
         {aba === "vendas" && (
@@ -2586,6 +2668,10 @@ export default function PainelPage() {
             aoConsumirPreSelecao={() => setVendaClienteId(null)}
             produtoPreSelecionado={vendaProdutoId}
             aoConsumirProdutoPreSelecao={() => setVendaProdutoId(null)}
+            onCompletarWhatsapp={(clienteId) => {
+              setClienteEditarId(clienteId);
+              setAba("clientes");
+            }}
           />
         )}
         {aba === "financeiro" && <TabFinanceiro />}
