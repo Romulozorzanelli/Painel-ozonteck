@@ -2437,8 +2437,13 @@ function TabPerfil() {
               className="text-input"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              disabled
+              readOnly
+              style={{ opacity: 0.7, cursor: "not-allowed" }}
             />
+            <span style={{ fontSize: 12, opacity: 0.7 }}>
+              Confirmado automaticamente pela sua conta Google.
+            </span>
           </div>
           <div className="form-row">
             <label>CPF</label>
@@ -2600,8 +2605,13 @@ function TelaCadastro({
               className="text-input"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              disabled
+              readOnly
+              style={{ opacity: 0.7, cursor: "not-allowed" }}
             />
+            <span style={{ fontSize: 12, opacity: 0.7 }}>
+              Confirmado automaticamente pela sua conta Google.
+            </span>
           </div>
           <div className="form-row">
             <label>CPF</label>
