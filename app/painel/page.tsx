@@ -270,6 +270,9 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
     { produto: Produto; quantidade: number }[]
   >([]);
   const [importandoNota, setImportandoNota] = useState(false);
+  const [progressoNota, setProgressoNota] = useState<{ atual: number; total: number } | null>(
+    null
+  );
   const [erroImportacao, setErroImportacao] = useState("");
   const [naoEncontrados, setNaoEncontrados] = useState<ItemNotaFiscal[]>([]);
 
@@ -354,10 +357,18 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    // Trava extra contra clique duplo: mesmo que o input já esteja
+    // desabilitado visualmente, ignora qualquer chamada enquanto já
+    // houver uma importação em andamento.
+    if (importandoNota) return;
+
     setErroImportacao("");
     setImportandoNota(true);
+    setProgressoNota({ atual: 0, total: 0 });
     try {
-      const itens = await extrairItensNotaFiscal(file);
+      const itens = await extrairItensNotaFiscal(file, (atual, total) =>
+        setProgressoNota({ atual, total })
+      );
       if (itens.length === 0) {
         setErroImportacao(
           "Não encontrei itens nesse PDF. Confira se é uma nota fiscal da Ozonteck."
@@ -379,6 +390,7 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
       setErroImportacao("Não foi possível ler esse PDF. Tente novamente.");
     } finally {
       setImportandoNota(false);
+      setProgressoNota(null);
     }
   }
 
@@ -656,14 +668,21 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
       )}
 
       {entradaAberta && (
-        <div className="sheet-overlay" onClick={fecharEntrada}>
+        <div
+          className="sheet-overlay"
+          onClick={importandoNota ? undefined : fecharEntrada}
+        >
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-handle" />
             <h2>Entrada de estoque</h2>
 
             <label
               className="btn btn-ghost btn-block"
-              style={{ cursor: "pointer", marginBottom: 12 }}
+              style={{
+                cursor: importandoNota ? "not-allowed" : "pointer",
+                opacity: importandoNota ? 0.6 : 1,
+                marginBottom: importandoNota ? 8 : 12,
+              }}
             >
               {importandoNota ? "Lendo nota fiscal..." : "📄 Importar nota fiscal (PDF)"}
               <input
@@ -674,6 +693,43 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
                 style={{ display: "none" }}
               />
             </label>
+            {importandoNota && (
+              <div style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    height: 6,
+                    borderRadius: 999,
+                    background: "var(--panel-2)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      borderRadius: 999,
+                      background: "var(--gold)",
+                      width:
+                        progressoNota && progressoNota.total > 0
+                          ? `${Math.round((progressoNota.atual / progressoNota.total) * 100)}%`
+                          : "12%",
+                      transition: "width 0.2s ease",
+                    }}
+                  />
+                </div>
+                <div
+                  style={{
+                    fontSize: "0.74rem",
+                    color: "var(--muted)",
+                    marginTop: 4,
+                    textAlign: "center",
+                  }}
+                >
+                  {progressoNota && progressoNota.total > 0
+                    ? `Lendo página ${progressoNota.atual} de ${progressoNota.total}... não feche essa tela.`
+                    : "Abrindo o PDF... não feche essa tela."}
+                </div>
+              </div>
+            )}
             {erroImportacao && (
               <div className="login-error" style={{ marginBottom: 12 }}>
                 {erroImportacao}
@@ -800,7 +856,11 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
             )}
 
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={fecharEntrada}>
+              <button
+                className="btn btn-ghost"
+                onClick={fecharEntrada}
+                disabled={importandoNota}
+              >
                 Cancelar
               </button>
               <button
