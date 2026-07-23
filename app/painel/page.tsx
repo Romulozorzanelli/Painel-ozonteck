@@ -616,6 +616,7 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
     { produto: Produto; quantidade: number }[]
   >([]);
   const [importandoNota, setImportandoNota] = useState(false);
+  const [salvandoEntrada, setSalvandoEntrada] = useState(false);
   const [progressoNota, setProgressoNota] = useState<{ atual: number; total: number } | null>(
     null
   );
@@ -767,13 +768,24 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
   }
 
   async function confirmarEntrada() {
-    if (itensEntrada.length === 0) return;
-    let atualizados = produtos;
-    for (const item of itensEntrada) {
-      atualizados = await ajustarEstoque(item.produto.id, item.quantidade);
-    }
-    setProdutos(atualizados);
+    // Trava contra clique duplo: se já tem uma entrada sendo salva, ignora.
+    // Isso precisa ser checado ANTES de qualquer await, senão dois cliques
+    // rápidos entram os dois aqui antes do estado atualizar.
+    if (itensEntrada.length === 0 || salvandoEntrada) return;
+    const itens = itensEntrada;
+    setSalvandoEntrada(true);
+    // Fecha a janela imediatamente no primeiro clique, como pedido —
+    // o salvamento continua em segundo plano com o indicador de carregamento.
     fecharEntrada();
+    try {
+      let atualizados = produtos;
+      for (const item of itens) {
+        atualizados = await ajustarEstoque(item.produto.id, item.quantidade);
+      }
+      setProdutos(atualizados);
+    } finally {
+      setSalvandoEntrada(false);
+    }
   }
 
   if (carregando) {
@@ -785,11 +797,20 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
       <div className="page-header">
         <div className="page-header-row">
           <h1>Estoque</h1>
-          <button className="btn btn-primary btn-sm" onClick={() => setEntradaAberta(true)}>
-            Entrada
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => setEntradaAberta(true)}
+            disabled={salvandoEntrada}
+          >
+            {salvandoEntrada ? "Salvando..." : "Entrada"}
           </button>
         </div>
         <p>Catálogo, quantidade disponível e preço.</p>
+        {salvandoEntrada && (
+          <div className="empty-state" style={{ padding: "10px 14px", textAlign: "left" }}>
+            Salvando entrada de estoque, um instante...
+          </div>
+        )}
       </div>
 
       <div className="kpi-scroll">
@@ -1213,7 +1234,7 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
               </button>
               <button
                 className="btn btn-primary"
-                disabled={itensEntrada.length === 0}
+                disabled={itensEntrada.length === 0 || salvandoEntrada}
                 onClick={confirmarEntrada}
               >
                 Confirmar entrada (
