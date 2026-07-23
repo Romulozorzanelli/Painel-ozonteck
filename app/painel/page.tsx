@@ -33,6 +33,7 @@ import {
   validarCpf,
   marcarPosVendaContatado,
   limparFollowupCliente,
+  marcarBoasVindasContatado,
 } from "@/lib/store";
 import { extrairItensNotaFiscal, casarComCatalogo, type ItemNotaFiscal } from "@/lib/nota-fiscal";
 
@@ -61,6 +62,10 @@ function primeiroNome(nomeCompleto: string): string {
   return partes[0] || nomeCompleto;
 }
 
+function mensagemBoasVindas(nome: string): string {
+  return `Oi ${nome}! Que bom ter você como cliente! 🙌 Qualquer dúvida sobre os produtos ou pra fazer seu próximo pedido, pode me chamar por aqui, tô à disposição!`;
+}
+
 function mensagemAniversario(nome: string): string {
   return `Oi ${nome}! 🎉 Passando aqui pra desejar um feliz aniversário! Que seu dia seja ótimo. Qualquer coisa que precisar, é só chamar! 💛`;
 }
@@ -77,9 +82,19 @@ function mensagemPosVenda(nome: string): string {
 }
 
 function gerarMensagem(tipo: TipoTarefa, nome: string, ultimoProduto?: string): string {
+  if (tipo === "novo_cadastro") return mensagemBoasVindas(nome);
   if (tipo === "aniversario") return mensagemAniversario(nome);
   if (tipo === "renovar") return mensagemRenovarPedido(nome, ultimoProduto);
   return mensagemPosVenda(nome);
+}
+
+function rotuloTempoDesde(data: Date, hoje: Date): string {
+  const diffDias = Math.round(
+    (inicioDoDia(hoje).getTime() - inicioDoDia(data).getTime()) / 86400000
+  );
+  if (diffDias <= 0) return "Cadastrado hoje";
+  if (diffDias === 1) return "Cadastrado ontem";
+  return `Cadastrado há ${diffDias} dias`;
 }
 
 function inicioDoDia(d: Date): Date {
@@ -106,7 +121,7 @@ function rotuloRelativo(data: Date, hoje: Date): string {
   return `Em ${diffDias} dias (${formatada})`;
 }
 
-type TipoTarefa = "aniversario" | "renovar" | "pos_venda";
+type TipoTarefa = "novo_cadastro" | "aniversario" | "renovar" | "pos_venda";
 
 type Tarefa = {
   id: string;
@@ -305,6 +320,19 @@ function TabInicio() {
 
   const JANELA_ANIVERSARIO_DIAS = 30;
 
+  const tarefasNovoCadastro: Tarefa[] = clientes
+    .filter((c) => c.telefone && !c.boasVindasContatado)
+    .sort((a, b) => new Date(a.criadoEm).getTime() - new Date(b.criadoEm).getTime())
+    .map((c) => ({
+      id: `novocadastro-${c.id}`,
+      tipo: "novo_cadastro" as const,
+      clienteId: c.id,
+      clienteNome: c.nome,
+      telefone: c.telefone,
+      dataReferencia: rotuloTempoDesde(new Date(c.criadoEm), agora),
+      mensagemPadrao: mensagemBoasVindas(primeiroNome(c.nome)),
+    }));
+
   const tarefasAniversario: Tarefa[] = clientes
     .filter((c) => c.telefone && c.aniversarioDia && c.aniversarioMes)
     .map((c) => {
@@ -369,15 +397,20 @@ function TabInicio() {
       };
     });
 
-  const tarefas = [...tarefasAniversario, ...tarefasRenovar, ...tarefasPosVenda].filter(
-    (t) => !dispensados.has(t.id)
-  );
+  const tarefas = [
+    ...tarefasNovoCadastro,
+    ...tarefasAniversario,
+    ...tarefasRenovar,
+    ...tarefasPosVenda,
+  ].filter((t) => !dispensados.has(t.id));
 
   async function concluirTarefa(t: Tarefa) {
     if (t.tipo === "renovar") {
       setClientes(await limparFollowupCliente(t.clienteId));
     } else if (t.tipo === "pos_venda" && t.vendaId) {
       setVendas(await marcarPosVendaContatado(t.vendaId));
+    } else if (t.tipo === "novo_cadastro") {
+      setClientes(await marcarBoasVindasContatado(t.clienteId));
     } else {
       setDispensados((prev) => new Set(prev).add(t.id));
     }
@@ -429,27 +462,38 @@ function TabInicio() {
           <div className="empty-state">
             <div className="title">Nenhuma tarefa por aqui 🎉</div>
             <p>
-              Aniversários dos próximos 30 dias, follow-ups agendados e
-              pós-vendas pendentes aparecem aqui.
+              Boas-vindas de novos cadastros, aniversários dos próximos 30
+              dias, follow-ups agendados e pós-vendas pendentes aparecem
+              aqui.
             </p>
           </div>
         ) : (
           <div className="list">
             {tarefas.map((t) => {
               const badgeClasse =
-                t.tipo === "aniversario"
+                t.tipo === "novo_cadastro"
+                  ? "badge-info"
+                  : t.tipo === "aniversario"
                   ? "badge-warn"
                   : t.tipo === "renovar"
                   ? "badge-low"
                   : "badge-ok";
               const label =
-                t.tipo === "aniversario"
+                t.tipo === "novo_cadastro"
+                  ? "Boas-vindas"
+                  : t.tipo === "aniversario"
                   ? "Aniversário"
                   : t.tipo === "renovar"
                   ? "Renovar pedido"
                   : "Pós-venda";
               const emoji =
-                t.tipo === "aniversario" ? "🎂" : t.tipo === "renovar" ? "🔁" : "💬";
+                t.tipo === "novo_cadastro"
+                  ? "👋"
+                  : t.tipo === "aniversario"
+                  ? "🎂"
+                  : t.tipo === "renovar"
+                  ? "🔁"
+                  : "💬";
 
               return (
                 <div
@@ -501,6 +545,7 @@ function TabInicio() {
                   setMensagensEditadas((m) => ({ ...m, [tarefaAberta.id]: novaMensagem }));
                 }}
               >
+                <option value="novo_cadastro">Boas-vindas</option>
                 <option value="aniversario">Aniversário</option>
                 <option value="renovar">Renovar pedido</option>
                 <option value="pos_venda">Pós-venda</option>
@@ -1273,6 +1318,7 @@ function TabClientes({
                 aniversarioMes: null,
                 proximoFollowup: null,
                 criadoEm: new Date().toISOString(),
+                boasVindasContatado: false,
               })
             }
           >
