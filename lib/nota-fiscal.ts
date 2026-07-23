@@ -45,7 +45,10 @@ function montarLinhas(itens: ItemPosicionado[]): string[] {
 const REGEX_ITEM =
   /^(\d{4,6})\s+(.+?)\s+(\d{7,8})\s+(\d{3})\s+([\d.]{4,6})\s+UN\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/;
 
-export async function extrairItensNotaFiscal(file: File): Promise<ItemNotaFiscal[]> {
+export async function extrairItensNotaFiscal(
+  file: File,
+  onProgresso?: (paginaAtual: number, totalPaginas: number) => void
+): Promise<ItemNotaFiscal[]> {
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
@@ -78,6 +81,8 @@ export async function extrairItensNotaFiscal(file: File): Promise<ItemNotaFiscal
         quantidade: parseNumeroBr(qtdeStr),
       });
     }
+
+    onProgresso?.(n, doc.numPages);
   }
 
   return itensEncontrados;
