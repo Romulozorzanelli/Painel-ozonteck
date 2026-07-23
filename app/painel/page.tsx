@@ -712,12 +712,14 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
     setImportandoNota(true);
     setProgressoNota({ atual: 0, total: 0 });
     try {
-      const itens = await extrairItensNotaFiscal(file, (atual, total) =>
+      const { itens, formato } = await extrairItensNotaFiscal(file, (atual, total) =>
         setProgressoNota({ atual, total })
       );
       if (itens.length === 0) {
         setErroImportacao(
-          "Não encontrei itens nesse PDF. Confira se é uma nota fiscal da Ozonteck."
+          formato === "desconhecido"
+            ? "Não reconheci o formato desse PDF. Ele deve ser a nota fiscal ou o espelho do pedido da Ozonteck."
+            : "Não encontrei itens nesse PDF. Confira se é uma nota fiscal da Ozonteck."
         );
         return;
       }
