@@ -33,6 +33,7 @@ import {
   uploadFotoPerfil,
   validarCpf,
 } from "@/lib/store";
+import { extrairItensNotaFiscal, casarComCatalogo, type ItemNotaFiscal } from "@/lib/nota-fiscal";
 
 const currency = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -252,6 +253,9 @@ function TabEstoque() {
   const [itensEntrada, setItensEntrada] = useState<
     { produto: Produto; quantidade: number }[]
   >([]);
+  const [importandoNota, setImportandoNota] = useState(false);
+  const [erroImportacao, setErroImportacao] = useState("");
+  const [naoEncontrados, setNaoEncontrados] = useState<ItemNotaFiscal[]>([]);
 
   useEffect(() => {
     getProdutos()
@@ -326,6 +330,40 @@ function TabEstoque() {
     setEntradaAberta(false);
     setBuscaEntrada("");
     setItensEntrada([]);
+    setNaoEncontrados([]);
+    setErroImportacao("");
+  }
+
+  async function importarNotaFiscal(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setErroImportacao("");
+    setImportandoNota(true);
+    try {
+      const itens = await extrairItensNotaFiscal(file);
+      if (itens.length === 0) {
+        setErroImportacao(
+          "Não encontrei itens nesse PDF. Confira se é uma nota fiscal da Ozonteck."
+        );
+        return;
+      }
+      const { casados, naoEncontrados: semMatch } = casarComCatalogo(itens, produtos);
+      setItensEntrada((atual) => {
+        const copia = atual.map((i) => ({ ...i }));
+        for (const c of casados) {
+          const existente = copia.find((i) => i.produto.id === c.produto.id);
+          if (existente) existente.quantidade += c.quantidade;
+          else copia.push(c);
+        }
+        return copia;
+      });
+      setNaoEncontrados(semMatch);
+    } catch {
+      setErroImportacao("Não foi possível ler esse PDF. Tente novamente.");
+    } finally {
+      setImportandoNota(false);
+    }
   }
 
   function adicionarItemEntrada(p: Produto) {
@@ -608,6 +646,55 @@ function TabEstoque() {
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-handle" />
             <h2>Entrada de estoque</h2>
+
+            <label
+              className="btn btn-ghost btn-block"
+              style={{ cursor: "pointer", marginBottom: 12 }}
+            >
+              {importandoNota ? "Lendo nota fiscal..." : "📄 Importar nota fiscal (PDF)"}
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={importarNotaFiscal}
+                disabled={importandoNota}
+                style={{ display: "none" }}
+              />
+            </label>
+            {erroImportacao && (
+              <div className="login-error" style={{ marginBottom: 12 }}>
+                {erroImportacao}
+              </div>
+            )}
+            {naoEncontrados.length > 0 && (
+              <div
+                style={{
+                  background: "var(--panel-2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "10px 12px",
+                  marginBottom: 12,
+                }}
+              >
+                <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: 6 }}>
+                  Não encontrados no catálogo — adicione manualmente:
+                </div>
+                {naoEncontrados.map((i, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: "0.8rem",
+                      color: "var(--muted)",
+                      padding: "3px 0",
+                    }}
+                  >
+                    <span>{i.descricao}</span>
+                    <span>{i.quantidade} un.</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <input
               className="search-input"
