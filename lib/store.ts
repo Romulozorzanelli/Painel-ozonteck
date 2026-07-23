@@ -57,6 +57,7 @@ export type Venda = {
   formaPagamento: string;
   status: "concluida" | "cancelada";
   tipoVenda: "cliente" | "revendedor";
+  posVendaContatado: boolean;
 };
 
 export type Lancamento = {
@@ -111,6 +112,7 @@ function vendaFromRow(row: any): Venda {
     formaPagamento: row.forma_pagamento,
     status: row.status,
     tipoVenda: row.tipo_venda ?? "cliente",
+    posVendaContatado: row.pos_venda_contatado ?? false,
     itens: (row.venda_itens ?? []).map((i: any) => ({
       produtoId: i.produto_id,
       nome: i.nome,
@@ -550,6 +552,18 @@ export async function excluirVenda(id: string): Promise<Venda[]> {
   await supabase.from("lancamentos").delete().eq("venda_id", id);
   await supabase.from("vendas").delete().eq("id", id);
   return getVendas();
+}
+
+export async function marcarPosVendaContatado(id: string): Promise<Venda[]> {
+  const supabase = createClient();
+  await supabase.from("vendas").update({ pos_venda_contatado: true }).eq("id", id);
+  return getVendas();
+}
+
+export async function limparFollowupCliente(id: string): Promise<Cliente[]> {
+  const supabase = createClient();
+  await supabase.from("clientes").update({ proximo_followup: null }).eq("id", id);
+  return getClientes();
 }
 
 /* ---------------------------- Financeiro ---------------------------- */
