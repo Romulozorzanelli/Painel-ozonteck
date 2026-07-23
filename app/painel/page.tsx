@@ -12,7 +12,6 @@ import {
   type Perfil,
   getProdutos,
   getRankingProdutos,
-  removeProduto,
   ajustarEstoque,
   getClientes,
   upsertCliente,
@@ -239,7 +238,7 @@ function TabInicio() {
 
 /* ---------------------------- Estoque ---------------------------- */
 
-function TabEstoque() {
+function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) => void }) {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [ranking, setRanking] = useState<Record<string, number>>({});
   const [carregando, setCarregando] = useState(true);
@@ -579,16 +578,14 @@ function TabEstoque() {
               Ajustar estoque
             </button>
             <button
-              className="btn btn-danger btn-block"
+              className="btn btn-ghost btn-block"
               style={{ marginTop: 8 }}
-              onClick={async () => {
-                if (confirm("Remover este produto do catálogo?")) {
-                  setProdutos(await removeProduto(detalhes.id));
-                  setDetalhes(null);
-                }
+              onClick={() => {
+                onVenderProduto(detalhes.id);
+                setDetalhes(null);
               }}
             >
-              Remover produto
+              Vender
             </button>
           </div>
         </div>
@@ -1162,9 +1159,13 @@ function TabClientes({ onNovaVenda }: { onNovaVenda: (clienteId: string) => void
 function TabVendas({
   clientePreSelecionado,
   aoConsumirPreSelecao,
+  produtoPreSelecionado,
+  aoConsumirProdutoPreSelecao,
 }: {
   clientePreSelecionado?: string | null;
   aoConsumirPreSelecao?: () => void;
+  produtoPreSelecionado?: string | null;
+  aoConsumirProdutoPreSelecao?: () => void;
 }) {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -1207,6 +1208,25 @@ function TabVendas({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientePreSelecionado]);
+
+  useEffect(() => {
+    if (produtoPreSelecionado && produtos.length > 0) {
+      const produto = produtos.find((p) => p.id === produtoPreSelecionado);
+      if (produto) {
+        setVendaEditando(null);
+        setClienteSelecionado("");
+        setClienteAvulso("");
+        setFormaPagamento("Pix");
+        setRevendedor(false);
+        setCarrinho([
+          { produtoId: produto.id, nome: produto.nome, quantidade: 1, precoUnitario: produto.preco },
+        ]);
+        setSheetAberto(true);
+      }
+      aoConsumirProdutoPreSelecao?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [produtoPreSelecionado, produtos]);
 
   // Ao editar uma venda ativa (concluída), os itens que já estavam nela
   // ainda não foram "devolvidos" ao estoque na tela — então a quantidade
@@ -2489,6 +2509,7 @@ const TABS = [
 export default function PainelPage() {
   const [aba, setAba] = useState<(typeof TABS)[number]["id"]>("inicio");
   const [vendaClienteId, setVendaClienteId] = useState<string | null>(null);
+  const [vendaProdutoId, setVendaProdutoId] = useState<string | null>(null);
   const router = useRouter();
   const atual = TABS.find((t) => t.id === aba)!;
 
@@ -2543,7 +2564,14 @@ export default function PainelPage() {
       </header>
       <main className="main">
         {aba === "inicio" && <TabInicio />}
-        {aba === "estoque" && <TabEstoque />}
+        {aba === "estoque" && (
+          <TabEstoque
+            onVenderProduto={(produtoId) => {
+              setVendaProdutoId(produtoId);
+              setAba("vendas");
+            }}
+          />
+        )}
         {aba === "clientes" && (
           <TabClientes
             onNovaVenda={(clienteId) => {
@@ -2556,6 +2584,8 @@ export default function PainelPage() {
           <TabVendas
             clientePreSelecionado={vendaClienteId}
             aoConsumirPreSelecao={() => setVendaClienteId(null)}
+            produtoPreSelecionado={vendaProdutoId}
+            aoConsumirProdutoPreSelecao={() => setVendaProdutoId(null)}
           />
         )}
         {aba === "financeiro" && <TabFinanceiro />}
