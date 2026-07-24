@@ -39,6 +39,9 @@ export type Cliente = {
   proximoFollowup: string | null;
   criadoEm: string;
   boasVindasContatado: boolean;
+  sexo: "masculino" | "feminino" | null;
+  emRelacionamento: boolean | null;
+  temFilhos: boolean | null;
 };
 
 export type ItemVenda = {
@@ -59,6 +62,7 @@ export type Venda = {
   status: "concluida" | "cancelada";
   tipoVenda: "cliente" | "revendedor";
   posVendaContatado: boolean;
+  indicacaoPedida: boolean;
 };
 
 export type Lancamento = {
@@ -101,6 +105,9 @@ function clienteFromRow(row: any): Cliente {
     proximoFollowup: row.proximo_followup,
     criadoEm: row.criado_em,
     boasVindasContatado: row.boas_vindas_contatado ?? false,
+    sexo: row.sexo ?? null,
+    emRelacionamento: row.em_relacionamento ?? null,
+    temFilhos: row.tem_filhos ?? null,
   };
 }
 
@@ -115,6 +122,7 @@ function vendaFromRow(row: any): Venda {
     status: row.status,
     tipoVenda: row.tipo_venda ?? "cliente",
     posVendaContatado: row.pos_venda_contatado ?? false,
+    indicacaoPedida: row.indicacao_pedida ?? false,
     itens: (row.venda_itens ?? []).map((i: any) => ({
       produtoId: i.produto_id,
       nome: i.nome,
@@ -270,6 +278,9 @@ export async function upsertCliente(cliente: Cliente): Promise<Cliente[]> {
         aniversario_dia: cliente.aniversarioDia,
         aniversario_mes: cliente.aniversarioMes,
         proximo_followup: cliente.proximoFollowup || null,
+        sexo: cliente.sexo,
+        em_relacionamento: cliente.emRelacionamento,
+        tem_filhos: cliente.temFilhos,
       })
       .eq("id", cliente.id);
   } else {
@@ -283,6 +294,9 @@ export async function upsertCliente(cliente: Cliente): Promise<Cliente[]> {
       aniversario_dia: cliente.aniversarioDia,
       aniversario_mes: cliente.aniversarioMes,
       proximo_followup: cliente.proximoFollowup || null,
+      sexo: cliente.sexo,
+      em_relacionamento: cliente.emRelacionamento,
+      tem_filhos: cliente.temFilhos,
     });
   }
 
@@ -559,6 +573,12 @@ export async function excluirVenda(id: string): Promise<Venda[]> {
 export async function marcarPosVendaContatado(id: string): Promise<Venda[]> {
   const supabase = createClient();
   await supabase.from("vendas").update({ pos_venda_contatado: true }).eq("id", id);
+  return getVendas();
+}
+
+export async function marcarIndicacaoPedida(id: string): Promise<Venda[]> {
+  const supabase = createClient();
+  await supabase.from("vendas").update({ indicacao_pedida: true }).eq("id", id);
   return getVendas();
 }
 
