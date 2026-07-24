@@ -1,4 +1,14 @@
-import type { ContatoImportado } from "./contatos";
+export type ContatoImportado = {
+  nome: string;
+  telefone: string;
+  email: string;
+  origem?: string;
+  sexo?: "masculino" | "feminino" | null;
+  emRelacionamento?: boolean | null;
+  temFilhos?: boolean | null;
+  aniversarioDia?: number | null;
+  aniversarioMes?: number | null;
+};
 
 // ATENÇÃO: use esta função apenas em código que roda no navegador (client
 // component). A biblioteca "xlsx" tem vulnerabilidades conhecidas sem
