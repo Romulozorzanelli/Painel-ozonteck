@@ -324,6 +324,42 @@ export async function removeCliente(id: string): Promise<Cliente[]> {
   return getClientes();
 }
 
+// Importacao em massa (vinda de .vcf). Pula quem ja tem telefone cadastrado,
+// pra nao duplicar. owner_id e preenchido sozinho pelo default da coluna
+// (auth.uid()), nao precisa setar aqui.
+export async function importarClientes(
+  contatos: { nome: string; telefone: string; email: string }[]
+): Promise<{ importados: number; clientes: Cliente[] }> {
+  const supabase = createClient();
+  const existentes = await getClientes();
+  const telefonesExistentes = new Set(
+    existentes.map((c) => normalizarTelefone(c.telefone)).filter(Boolean)
+  );
+
+  const vistosNesseLote = new Set<string>();
+  const linhas: { nome: string; telefone: string; email: string; origem: string }[] = [];
+
+  for (const c of contatos) {
+    const telefone = normalizarTelefone(c.telefone);
+    if (!telefone || telefonesExistentes.has(telefone) || vistosNesseLote.has(telefone)) {
+      continue;
+    }
+    vistosNesseLote.add(telefone);
+    linhas.push({
+      nome: c.nome,
+      telefone,
+      email: c.email || "",
+      origem: "Importado dos contatos",
+    });
+  }
+
+  if (linhas.length > 0) {
+    await supabase.from("clientes").insert(linhas);
+  }
+
+  return { importados: linhas.length, clientes: await getClientes() };
+}
+
 /* ---------------------------- Vendas ---------------------------- */
 
 export async function getVendas(): Promise<Venda[]> {
