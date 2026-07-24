@@ -42,6 +42,8 @@ export type Cliente = {
   sexo: "masculino" | "feminino" | null;
   emRelacionamento: boolean | null;
   temFilhos: boolean | null;
+  inatividadeContatadaEm: string | null;
+  aniversarioPedido: boolean;
 };
 
 export type ItemVenda = {
@@ -108,6 +110,8 @@ function clienteFromRow(row: any): Cliente {
     sexo: row.sexo ?? null,
     emRelacionamento: row.em_relacionamento ?? null,
     temFilhos: row.tem_filhos ?? null,
+    inatividadeContatadaEm: row.inatividade_contatada_em ?? null,
+    aniversarioPedido: row.aniversario_pedido ?? false,
   };
 }
 
@@ -263,15 +267,26 @@ export async function getClientes(): Promise<Cliente[]> {
   return (data ?? []).map(clienteFromRow);
 }
 
+// Normaliza telefone pro formato +DDI DDD numero, so digitos alem do "+"
+// (ex: "+5527998834350"). Aceita qualquer formatacao de entrada (com
+// parenteses, espaco, traco) e adiciona o DDI 55 se nao tiver.
+export function normalizarTelefone(input: string): string {
+  const digitos = (input || "").replace(/\D/g, "");
+  if (!digitos) return "";
+  const comDDI = digitos.length <= 11 ? `55${digitos}` : digitos;
+  return `+${comDDI}`;
+}
+
 export async function upsertCliente(cliente: Cliente): Promise<Cliente[]> {
   const supabase = createClient();
+  const telefone = normalizarTelefone(cliente.telefone);
 
   if (cliente.id) {
     await supabase
       .from("clientes")
       .update({
         nome: cliente.nome,
-        telefone: cliente.telefone,
+        telefone,
         email: cliente.email,
         origem: cliente.origem,
         observacoes: cliente.observacoes,
@@ -287,7 +302,7 @@ export async function upsertCliente(cliente: Cliente): Promise<Cliente[]> {
     // Cliente novo: sem id ainda, deixa o banco gerar (default gen_random_uuid()).
     await supabase.from("clientes").insert({
       nome: cliente.nome,
-      telefone: cliente.telefone,
+      telefone,
       email: cliente.email,
       origem: cliente.origem,
       observacoes: cliente.observacoes,
@@ -588,6 +603,49 @@ export async function limparFollowupCliente(id: string): Promise<Cliente[]> {
   return getClientes();
 }
 
+export async function marcarInatividadeContatada(id: string): Promise<Cliente[]> {
+  const supabase = createClient();
+  await supabase
+    .from("clientes")
+    .update({ inatividade_contatada_em: new Date().toISOString() })
+    .eq("id", id);
+  return getClientes();
+}
+
+export async function marcarAniversarioPedido(id: string): Promise<Cliente[]> {
+  const supabase = createClient();
+  await supabase.from("clientes").update({ aniversario_pedido: true }).eq("id", id);
+  return getClientes();
+}
+
+/* ---------------------------- Templates de mensagem ---------------------------- */
+
+export async function getTemplates(): Promise<Record<string, string>> {
+  const supabase = createClient();
+  const { data, error } = await supabase.from("templates_mensagem").select("tipo, texto");
+  if (error) throw error;
+  const mapa: Record<string, string> = {};
+  for (const row of data ?? []) mapa[row.tipo] = row.texto;
+  return mapa;
+}
+
+export async function salvarTemplate(tipo: string, texto: string): Promise<void> {
+  const supabase = createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  const ownerId = auth.user?.id;
+  if (!ownerId) throw new Error("Usuário não autenticado.");
+  await supabase
+    .from("templates_mensagem")
+    .upsert({ owner_id: ownerId, tipo, texto, atualizado_em: new Date().toISOString() }, {
+      onConflict: "owner_id,tipo",
+    });
+}
+
+export async function restaurarTemplatePadrao(tipo: string): Promise<void> {
+  const supabase = createClient();
+  await supabase.from("templates_mensagem").delete().eq("tipo", tipo);
+}
+
 export async function marcarBoasVindasContatado(id: string): Promise<Cliente[]> {
   const supabase = createClient();
   await supabase.from("clientes").update({ boas_vindas_contatado: true }).eq("id", id);
@@ -713,7 +771,7 @@ export async function completarCadastro(dados: {
     .upsert({
       id: user.id,
       nome: dados.nome,
-      whatsapp: dados.whatsapp,
+      whatsapp: normalizarTelefone(dados.whatsapp),
       email: dados.email,
       cpf: dados.cpf.replace(/\D/g, ""),
       cadastro_completo: true,
@@ -746,7 +804,7 @@ export async function atualizarPerfil(dados: {
     .upsert({
       id: user.id,
       nome: dados.nome,
-      whatsapp: dados.whatsapp,
+      whatsapp: normalizarTelefone(dados.whatsapp),
       email: dados.email,
       cpf: dados.cpf.replace(/\D/g, ""),
       foto: dados.foto,
