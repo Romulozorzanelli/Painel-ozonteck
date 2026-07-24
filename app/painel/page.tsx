@@ -40,8 +40,11 @@ import {
   getTemplates,
   salvarTemplate,
   restaurarTemplatePadrao,
+  importarClientes,
+  normalizarTelefone,
 } from "@/lib/store";
 import { extrairItensNotaFiscal, casarComCatalogo, type ItemNotaFiscal } from "@/lib/nota-fiscal";
+import { extrairContatosVCard, type ContatoImportado } from "@/lib/contatos";
 
 const currency = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -1778,6 +1781,12 @@ function TabClientes({
   const [busca, setBusca] = useState("");
   const [detalhes, setDetalhes] = useState<Cliente | null>(null);
   const [editando, setEditando] = useState<Cliente | null>(null);
+  const [importAberto, setImportAberto] = useState(false);
+  const [contatosLidos, setContatosLidos] = useState<ContatoImportado[]>([]);
+  const [selecionados, setSelecionados] = useState<Set<number>>(new Set());
+  const [lendoArquivo, setLendoArquivo] = useState(false);
+  const [importando, setImportando] = useState(false);
+  const [avisoImportacao, setAvisoImportacao] = useState("");
 
   useEffect(() => {
     Promise.all([getClientes(), getVendas()])
@@ -1812,6 +1821,71 @@ function TabClientes({
     return vendas
       .filter((v) => v.clienteId === clienteId && v.status === "concluida")
       .reduce((s, v) => s + v.total, 0);
+  }
+
+  async function lerArquivoVcf(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setLendoArquivo(true);
+    setAvisoImportacao("");
+    try {
+      const texto = await file.text();
+      const contatos = extrairContatosVCard(texto);
+      if (contatos.length === 0) {
+        setAvisoImportacao("Não encontrei nenhum contato válido nesse arquivo.");
+        setContatosLidos([]);
+        setSelecionados(new Set());
+        return;
+      }
+      const existentes = new Set(clientes.map((c) => normalizarTelefone(c.telefone)));
+      const vistos = new Set<string>();
+      const novosIndices = new Set<number>();
+      contatos.forEach((c, i) => {
+        const tel = normalizarTelefone(c.telefone);
+        if (tel && !existentes.has(tel) && !vistos.has(tel)) {
+          vistos.add(tel);
+          novosIndices.add(i);
+        }
+      });
+      setContatosLidos(contatos);
+      setSelecionados(novosIndices);
+    } catch {
+      setAvisoImportacao("Não consegui ler esse arquivo. Confira se é um .vcf válido.");
+    } finally {
+      setLendoArquivo(false);
+    }
+  }
+
+  function alternarSelecionado(i: number) {
+    setSelecionados((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(i)) novo.delete(i);
+      else novo.add(i);
+      return novo;
+    });
+  }
+
+  async function confirmarImportacao() {
+    if (importando || selecionados.size === 0) return;
+    setImportando(true);
+    try {
+      const escolhidos = contatosLidos.filter((_, i) => selecionados.has(i));
+      const { importados, clientes: atualizados } = await importarClientes(escolhidos);
+      setClientes(atualizados);
+      setAvisoImportacao(`${importados} contato(s) importado(s) com sucesso!`);
+      setContatosLidos([]);
+      setSelecionados(new Set());
+    } finally {
+      setImportando(false);
+    }
+  }
+
+  function fecharImportacao() {
+    setImportAberto(false);
+    setContatosLidos([]);
+    setSelecionados(new Set());
+    setAvisoImportacao("");
   }
 
   if (carregando) {
@@ -1864,6 +1938,13 @@ function TabClientes({
             }
           >
             + Novo cliente
+          </button>
+          <button
+            className="btn btn-ghost btn-block"
+            style={{ marginTop: 8 }}
+            onClick={() => setImportAberto(true)}
+          >
+            Importar contatos (.vcf)
           </button>
         </div>
 
@@ -2208,6 +2289,109 @@ function TabClientes({
                 Salvar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {importAberto && (
+        <div className="sheet-overlay" onClick={fecharImportacao}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <div className="sheet-header">
+              <h2>Importar contatos</h2>
+              <button className="sheet-close" onClick={fecharImportacao}>
+                ×
+              </button>
+            </div>
+
+            {contatosLidos.length === 0 ? (
+              <>
+                <p className="sheet-descricao">
+                  Envie um arquivo .vcf (exportado dos Contatos do seu
+                  celular ou do computador) pra importar vários clientes de
+                  uma vez.
+                </p>
+                <label className="btn btn-primary btn-block" style={{ cursor: "pointer" }}>
+                  {lendoArquivo ? "Lendo arquivo..." : "Escolher arquivo .vcf"}
+                  <input
+                    type="file"
+                    accept=".vcf,text/vcard,text/x-vcard"
+                    style={{ display: "none" }}
+                    disabled={lendoArquivo}
+                    onChange={lerArquivoVcf}
+                  />
+                </label>
+                {avisoImportacao && (
+                  <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: 12 }}>
+                    {avisoImportacao}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p
+                  style={{ color: "var(--muted)", fontSize: "0.82rem", margin: "0 0 12px" }}
+                >
+                  {selecionados.size} de {contatosLidos.length} selecionado(s) pra
+                  importar. Contatos já cadastrados (mesmo telefone) vêm
+                  desmarcados automaticamente.
+                </p>
+                <div className="list" style={{ maxHeight: "40vh", overflowY: "auto" }}>
+                  {contatosLidos.map((c, i) => {
+                    const tel = normalizarTelefone(c.telefone);
+                    const jaExiste = clientes.some(
+                      (existente) => normalizarTelefone(existente.telefone) === tel
+                    );
+                    const marcado = selecionados.has(i);
+                    return (
+                      <div
+                        key={i}
+                        className="row-card"
+                        style={{
+                          opacity: jaExiste ? 0.5 : 1,
+                          cursor: jaExiste ? "default" : "pointer",
+                        }}
+                        onClick={() => !jaExiste && alternarSelecionado(i)}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={marcado}
+                          disabled={jaExiste}
+                          onChange={() => alternarSelecionado(i)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="row-card-body">
+                          <div className="row-card-title">{c.nome}</div>
+                          <div className="row-card-sub">
+                            {tel}
+                            {jaExiste ? " • já cadastrado" : ""}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {avisoImportacao && (
+                  <p style={{ color: "var(--success)", fontSize: "0.85rem", margin: "12px 0" }}>
+                    {avisoImportacao}
+                  </p>
+                )}
+                <div className="form-actions" style={{ marginTop: 14 }}>
+                  <button className="btn btn-ghost" onClick={fecharImportacao}>
+                    Fechar
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    disabled={selecionados.size === 0 || importando}
+                    onClick={confirmarImportacao}
+                  >
+                    {importando
+                      ? "Importando..."
+                      : `Importar ${selecionados.size} contato(s)`}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
