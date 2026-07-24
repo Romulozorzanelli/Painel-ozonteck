@@ -44,8 +44,7 @@ import {
   normalizarTelefone,
 } from "@/lib/store";
 import { extrairItensNotaFiscal, casarComCatalogo, type ItemNotaFiscal } from "@/lib/nota-fiscal";
-import { extrairContatosVCard, type ContatoImportado } from "@/lib/contatos";
-import { extrairContatosPlanilha } from "@/lib/planilha";
+import { extrairContatosPlanilha, type ContatoImportado } from "@/lib/planilha";
 
 const currency = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -1823,28 +1822,6 @@ function TabClientes({
   const [removendoCliente, setRemovendoCliente] = useState(false);
   const [salvandoCliente, setSalvandoCliente] = useState(false);
   const [avisoImportacao, setAvisoImportacao] = useState("");
-  const [avisoCompartilhamento, setAvisoCompartilhamento] = useState("");
-  const searchParams = useSearchParams();
-  const router = useRouter();
-
-  useEffect(() => {
-    const importados = searchParams.get("importados");
-    const erro = searchParams.get("importar_erro");
-    if (importados !== null) {
-      setAvisoCompartilhamento(
-        Number(importados) > 0
-          ? `${importados} contato(s) importado(s) via compartilhamento! 🎉`
-          : "Nenhum contato novo pra importar (já estavam todos cadastrados)."
-      );
-      router.replace("/painel?aba=clientes", { scroll: false });
-    } else if (erro) {
-      setAvisoCompartilhamento(
-        "Não consegui importar esse arquivo compartilhado. Tenta pelo botão \"Importar contatos\" aqui na tela."
-      );
-      router.replace("/painel?aba=clientes", { scroll: false });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     Promise.all([getClientes(), getVendas()])
@@ -1888,18 +1865,11 @@ function TabClientes({
     setLendoArquivo(true);
     setAvisoImportacao("");
     try {
-      const nomeArquivo = file.name.toLowerCase();
-      const ehPlanilha = nomeArquivo.endsWith(".xlsx") || nomeArquivo.endsWith(".xls");
-
-      const contatos = ehPlanilha
-        ? await extrairContatosPlanilha(await file.arrayBuffer())
-        : extrairContatosVCard(await file.text());
+      const contatos = await extrairContatosPlanilha(await file.arrayBuffer());
 
       if (contatos.length === 0) {
         setAvisoImportacao(
-          ehPlanilha
-            ? "Não encontrei nenhum contato válido nessa planilha. Confira se preencheu as colunas Nome e Telefone."
-            : "Não encontrei nenhum contato válido nesse arquivo."
+          "Não encontrei nenhum contato válido nessa planilha. Confira se preencheu as colunas Nome e Telefone."
         );
         setContatosLidos([]);
         setSelecionados(new Set());
@@ -1918,9 +1888,7 @@ function TabClientes({
       setContatosLidos(contatos);
       setSelecionados(novosIndices);
     } catch {
-      setAvisoImportacao(
-        "Não consegui ler esse arquivo. Confira se é uma planilha (.xlsx) ou vCard (.vcf) válido."
-      );
+      setAvisoImportacao("Não consegui ler essa planilha. Confira se é um arquivo .xlsx válido.");
     } finally {
       setLendoArquivo(false);
     }
@@ -1967,16 +1935,6 @@ function TabClientes({
         <h1>Clientes</h1>
         <p>Cadastro e histórico de relacionamento.</p>
       </div>
-
-      {avisoCompartilhamento && (
-        <div
-          className="empty-state"
-          style={{ textAlign: "left", marginBottom: 16, cursor: "pointer" }}
-          onClick={() => setAvisoCompartilhamento("")}
-        >
-          {avisoCompartilhamento}
-        </div>
-      )}
 
       <div className="kpi-scroll">
         <div className="kpi-card">
@@ -2402,10 +2360,9 @@ function TabClientes({
             {contatosLidos.length === 0 ? (
               <>
                 <p className="sheet-descricao">
-                  A forma mais confiável é preencher a planilha modelo e
-                  subir de volta aqui. Também aceitamos arquivo .vcf
-                  exportado dos Contatos do celular, mas ele pode variar
-                  bastante entre aparelhos.
+                  Baixe a planilha modelo, preencha com seus contatos e
+                  suba de volta aqui pra importar vários clientes de uma
+                  vez.
                 </p>
                 <a
                   href="/modelo-contatos.xlsx"
@@ -2416,10 +2373,10 @@ function TabClientes({
                   📥 Baixar modelo de planilha (.xlsx)
                 </a>
                 <label className="btn btn-primary btn-block" style={{ cursor: "pointer" }}>
-                  {lendoArquivo ? "Lendo arquivo..." : "Escolher planilha ou .vcf preenchido"}
+                  {lendoArquivo ? "Lendo arquivo..." : "Escolher planilha preenchida"}
                   <input
                     type="file"
-                    accept=".xlsx,.xls,.vcf,text/vcard,text/x-vcard,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     style={{ display: "none" }}
                     disabled={lendoArquivo}
                     onChange={lerArquivoContatos}
