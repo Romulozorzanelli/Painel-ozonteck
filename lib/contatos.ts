@@ -2,6 +2,12 @@ export type ContatoImportado = {
   nome: string;
   telefone: string;
   email: string;
+  origem?: string;
+  sexo?: "masculino" | "feminino" | null;
+  emRelacionamento?: boolean | null;
+  temFilhos?: boolean | null;
+  aniversarioDia?: number | null;
+  aniversarioMes?: number | null;
 };
 
 // Le o conteudo de um arquivo .vcf (vCard) e devolve os contatos com nome e
