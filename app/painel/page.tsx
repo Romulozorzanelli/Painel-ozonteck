@@ -34,6 +34,7 @@ import {
   marcarPosVendaContatado,
   limparFollowupCliente,
   marcarBoasVindasContatado,
+  marcarIndicacaoPedida,
 } from "@/lib/store";
 import { extrairItensNotaFiscal, casarComCatalogo, type ItemNotaFiscal } from "@/lib/nota-fiscal";
 
@@ -81,10 +82,16 @@ function mensagemPosVenda(nome: string): string {
   return `Oi ${nome}! Já faz alguns dias da sua última compra, queria saber como está sendo sua experiência com os produtos! Ficou alguma dúvida ou posso ajudar em algo? 💬`;
 }
 
+function mensagemIndicacao(nome: string, produto?: string): string {
+  const referencia = produto ? `o ${produto}` : "os produtos";
+  return `Oi ${nome}! Fico muito feliz que você escolheu ${referencia} 💛 Se tiver alguém que também usaria, me manda o contato? Prometo cuidar bem dela, igual cuidei de você!`;
+}
+
 function gerarMensagem(tipo: TipoTarefa, nome: string, ultimoProduto?: string): string {
   if (tipo === "novo_cadastro") return mensagemBoasVindas(nome);
   if (tipo === "aniversario") return mensagemAniversario(nome);
   if (tipo === "renovar") return mensagemRenovarPedido(nome, ultimoProduto);
+  if (tipo === "indicacao") return mensagemIndicacao(nome, ultimoProduto);
   return mensagemPosVenda(nome);
 }
 
@@ -121,7 +128,7 @@ function rotuloRelativo(data: Date, hoje: Date): string {
   return `Em ${diffDias} dias (${formatada})`;
 }
 
-type TipoTarefa = "novo_cadastro" | "aniversario" | "renovar" | "pos_venda";
+type TipoTarefa = "novo_cadastro" | "aniversario" | "renovar" | "pos_venda" | "indicacao";
 
 type Tarefa = {
   id: string;
@@ -397,11 +404,34 @@ function TabInicio() {
       };
     });
 
+  const tarefasIndicacao: Tarefa[] = vendasConcluidas
+    .filter((v) => {
+      if (v.indicacaoPedida || !v.clienteId) return false;
+      const cliente = clientes.find((c) => c.id === v.clienteId);
+      if (!cliente?.telefone) return false;
+      const dias = (agora.getTime() - new Date(v.data).getTime()) / 86400000;
+      return dias >= 7;
+    })
+    .map((v) => {
+      const cliente = clientes.find((c) => c.id === v.clienteId)!;
+      return {
+        id: `indicacao-${v.id}`,
+        tipo: "indicacao" as const,
+        clienteId: cliente.id,
+        clienteNome: cliente.nome,
+        telefone: cliente.telefone,
+        dataReferencia: `Venda de ${new Date(v.data).toLocaleDateString("pt-BR")}`,
+        mensagemPadrao: mensagemIndicacao(primeiroNome(cliente.nome), v.itens?.[0]?.nome),
+        vendaId: v.id,
+      };
+    });
+
   const tarefas = [
     ...tarefasNovoCadastro,
     ...tarefasAniversario,
     ...tarefasRenovar,
     ...tarefasPosVenda,
+    ...tarefasIndicacao,
   ].filter((t) => !dispensados.has(t.id));
 
   async function concluirTarefa(t: Tarefa) {
@@ -409,6 +439,8 @@ function TabInicio() {
       setClientes(await limparFollowupCliente(t.clienteId));
     } else if (t.tipo === "pos_venda" && t.vendaId) {
       setVendas(await marcarPosVendaContatado(t.vendaId));
+    } else if (t.tipo === "indicacao" && t.vendaId) {
+      setVendas(await marcarIndicacaoPedida(t.vendaId));
     } else if (t.tipo === "novo_cadastro") {
       setClientes(await marcarBoasVindasContatado(t.clienteId));
     } else {
@@ -463,8 +495,8 @@ function TabInicio() {
             <div className="title">Nenhuma tarefa por aqui 🎉</div>
             <p>
               Boas-vindas de novos cadastros, aniversários dos próximos 30
-              dias, follow-ups agendados e pós-vendas pendentes aparecem
-              aqui.
+              dias, follow-ups agendados, pós-vendas e pedidos de indicação
+              pendentes aparecem aqui.
             </p>
           </div>
         ) : (
@@ -477,6 +509,8 @@ function TabInicio() {
                   ? "badge-warn"
                   : t.tipo === "renovar"
                   ? "badge-low"
+                  : t.tipo === "indicacao"
+                  ? "badge-info"
                   : "badge-ok";
               const label =
                 t.tipo === "novo_cadastro"
@@ -485,6 +519,8 @@ function TabInicio() {
                   ? "Aniversário"
                   : t.tipo === "renovar"
                   ? "Renovar pedido"
+                  : t.tipo === "indicacao"
+                  ? "Pedir indicação"
                   : "Pós-venda";
               const emoji =
                 t.tipo === "novo_cadastro"
@@ -493,6 +529,8 @@ function TabInicio() {
                   ? "🎂"
                   : t.tipo === "renovar"
                   ? "🔁"
+                  : t.tipo === "indicacao"
+                  ? "🤝"
                   : "💬";
 
               return (
@@ -549,6 +587,7 @@ function TabInicio() {
                 <option value="aniversario">Aniversário</option>
                 <option value="renovar">Renovar pedido</option>
                 <option value="pos_venda">Pós-venda</option>
+                <option value="indicacao">Pedir indicação</option>
               </select>
             </div>
 
@@ -1342,6 +1381,9 @@ function TabClientes({
                 proximoFollowup: null,
                 criadoEm: new Date().toISOString(),
                 boasVindasContatado: false,
+                sexo: null,
+                emRelacionamento: null,
+                temFilhos: null,
               })
             }
           >
@@ -1402,6 +1444,24 @@ function TabClientes({
                 <span style={{ color: "var(--muted)" }}>Origem</span>
                 <span>{detalhes.origem || "—"}</span>
               </div>
+              {detalhes.sexo && (
+                <div className="cart-line">
+                  <span style={{ color: "var(--muted)" }}>Sexo</span>
+                  <span>{detalhes.sexo === "feminino" ? "Feminino" : "Masculino"}</span>
+                </div>
+              )}
+              {detalhes.emRelacionamento !== null && (
+                <div className="cart-line">
+                  <span style={{ color: "var(--muted)" }}>Em relacionamento</span>
+                  <span>{detalhes.emRelacionamento ? "Sim" : "Não"}</span>
+                </div>
+              )}
+              {detalhes.temFilhos !== null && (
+                <div className="cart-line">
+                  <span style={{ color: "var(--muted)" }}>Tem filhos</span>
+                  <span>{detalhes.temFilhos ? "Sim" : "Não"}</span>
+                </div>
+              )}
               {detalhes.aniversarioDia && detalhes.aniversarioMes && (
                 <div className="cart-line">
                   <span style={{ color: "var(--muted)" }}>Aniversário</span>
@@ -1521,6 +1581,64 @@ function TabClientes({
                   <option>Indicação</option>
                   <option>Rede social</option>
                   <option>Outro</option>
+                </select>
+              </div>
+              <div className="form-row">
+                <label>Sexo</label>
+                <select
+                  className="select-input"
+                  value={editando.sexo ?? ""}
+                  onChange={(e) =>
+                    setEditando({
+                      ...editando,
+                      sexo: (e.target.value || null) as "masculino" | "feminino" | null,
+                    })
+                  }
+                >
+                  <option value="">Não informado</option>
+                  <option value="feminino">Feminino</option>
+                  <option value="masculino">Masculino</option>
+                </select>
+              </div>
+              <div className="form-row">
+                <label>Em relacionamento</label>
+                <select
+                  className="select-input"
+                  value={
+                    editando.emRelacionamento === null
+                      ? ""
+                      : editando.emRelacionamento
+                      ? "sim"
+                      : "nao"
+                  }
+                  onChange={(e) =>
+                    setEditando({
+                      ...editando,
+                      emRelacionamento:
+                        e.target.value === "" ? null : e.target.value === "sim",
+                    })
+                  }
+                >
+                  <option value="">Não informado</option>
+                  <option value="sim">Sim</option>
+                  <option value="nao">Não</option>
+                </select>
+              </div>
+              <div className="form-row">
+                <label>Tem filhos</label>
+                <select
+                  className="select-input"
+                  value={editando.temFilhos === null ? "" : editando.temFilhos ? "sim" : "nao"}
+                  onChange={(e) =>
+                    setEditando({
+                      ...editando,
+                      temFilhos: e.target.value === "" ? null : e.target.value === "sim",
+                    })
+                  }
+                >
+                  <option value="">Não informado</option>
+                  <option value="sim">Sim</option>
+                  <option value="nao">Não</option>
                 </select>
               </div>
               <div className="form-row">
