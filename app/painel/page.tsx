@@ -45,6 +45,7 @@ import {
 } from "@/lib/store";
 import { extrairItensNotaFiscal, casarComCatalogo, type ItemNotaFiscal } from "@/lib/nota-fiscal";
 import { extrairContatosVCard, type ContatoImportado } from "@/lib/contatos";
+import { extrairContatosPlanilha } from "@/lib/planilha";
 
 const currency = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -1880,17 +1881,26 @@ function TabClientes({
       .reduce((s, v) => s + v.total, 0);
   }
 
-  async function lerArquivoVcf(e: React.ChangeEvent<HTMLInputElement>) {
+  async function lerArquivoContatos(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
     setLendoArquivo(true);
     setAvisoImportacao("");
     try {
-      const texto = await file.text();
-      const contatos = extrairContatosVCard(texto);
+      const nomeArquivo = file.name.toLowerCase();
+      const ehPlanilha = nomeArquivo.endsWith(".xlsx") || nomeArquivo.endsWith(".xls");
+
+      const contatos = ehPlanilha
+        ? await extrairContatosPlanilha(await file.arrayBuffer())
+        : extrairContatosVCard(await file.text());
+
       if (contatos.length === 0) {
-        setAvisoImportacao("Não encontrei nenhum contato válido nesse arquivo.");
+        setAvisoImportacao(
+          ehPlanilha
+            ? "Não encontrei nenhum contato válido nessa planilha. Confira se preencheu as colunas Nome e Telefone."
+            : "Não encontrei nenhum contato válido nesse arquivo."
+        );
         setContatosLidos([]);
         setSelecionados(new Set());
         return;
@@ -1908,7 +1918,9 @@ function TabClientes({
       setContatosLidos(contatos);
       setSelecionados(novosIndices);
     } catch {
-      setAvisoImportacao("Não consegui ler esse arquivo. Confira se é um .vcf válido.");
+      setAvisoImportacao(
+        "Não consegui ler esse arquivo. Confira se é uma planilha (.xlsx) ou vCard (.vcf) válido."
+      );
     } finally {
       setLendoArquivo(false);
     }
@@ -2390,20 +2402,32 @@ function TabClientes({
             {contatosLidos.length === 0 ? (
               <>
                 <p className="sheet-descricao">
-                  Envie um arquivo .vcf (exportado dos Contatos do seu
-                  celular ou do computador) pra importar vários clientes de
-                  uma vez.
+                  A forma mais confiável é preencher a planilha modelo e
+                  subir de volta aqui. Também aceitamos arquivo .vcf
+                  exportado dos Contatos do celular, mas ele pode variar
+                  bastante entre aparelhos.
                 </p>
+                <a
+                  href="/modelo-contatos.xlsx"
+                  download
+                  className="btn btn-ghost btn-block"
+                  style={{ marginBottom: 10, textDecoration: "none" }}
+                >
+                  📥 Baixar modelo de planilha (.xlsx)
+                </a>
                 <label className="btn btn-primary btn-block" style={{ cursor: "pointer" }}>
-                  {lendoArquivo ? "Lendo arquivo..." : "Escolher arquivo .vcf"}
+                  {lendoArquivo ? "Lendo arquivo..." : "Escolher planilha ou .vcf preenchido"}
                   <input
                     type="file"
-                    accept=".vcf,text/vcard,text/x-vcard"
+                    accept=".xlsx,.xls,.vcf,text/vcard,text/x-vcard,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     style={{ display: "none" }}
                     disabled={lendoArquivo}
-                    onChange={lerArquivoVcf}
+                    onChange={lerArquivoContatos}
                   />
                 </label>
+                <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginTop: 10 }}>
+                  Telefone no formato +55DDDNúmero, ex: +5527998877665.
+                </p>
                 {avisoImportacao && (
                   <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: 12 }}>
                     {avisoImportacao}
