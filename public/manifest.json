@@ -15,5 +15,18 @@
       "type": "image/jpeg",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/painel/importar-contatos",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "contatos",
+          "accept": ["text/vcard", "text/x-vcard", "text/directory", ".vcf"]
+        }
+      ]
+    }
+  }
 }
