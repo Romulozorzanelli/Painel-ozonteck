@@ -283,6 +283,18 @@ function TabInicio() {
   const [modeloSelecionado, setModeloSelecionado] = useState<TipoTarefa | null>(null);
   const [mensagensEditadas, setMensagensEditadas] = useState<Record<string, string>>({});
   const [dispensados, setDispensados] = useState<Set<string>>(new Set());
+  const [campanhaAberta, setCampanhaAberta] = useState(false);
+  const [filtroSexo, setFiltroSexo] = useState<"qualquer" | "masculino" | "feminino">(
+    "qualquer"
+  );
+  const [filtroRelacionamento, setFiltroRelacionamento] = useState<
+    "qualquer" | "sim" | "nao"
+  >("qualquer");
+  const [filtroFilhos, setFiltroFilhos] = useState<"qualquer" | "sim" | "nao">("qualquer");
+  const [mensagemCampanha, setMensagemCampanha] = useState(
+    "Oi {nome}! Passando aqui com uma novidade especial pra você! 😊"
+  );
+  const [enviadosCampanha, setEnviadosCampanha] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     Promise.all([getProdutos(), getClientes(), getVendas()])
@@ -454,6 +466,57 @@ function TabInicio() {
     setModeloSelecionado(t.tipo);
   }
 
+  function aplicarPresetCampanha(
+    preset: "maes" | "pais" | "namorados" | "mulher" | "limpar"
+  ) {
+    if (preset === "maes") {
+      setFiltroSexo("feminino");
+      setFiltroFilhos("sim");
+      setFiltroRelacionamento("qualquer");
+      setMensagemCampanha(
+        "Oi {nome}! Hoje é Dia das Mães e eu queria te desejar um dia incrível! 💐 Já pensou em se presentear com um perfume novo?"
+      );
+    } else if (preset === "pais") {
+      setFiltroSexo("masculino");
+      setFiltroFilhos("sim");
+      setFiltroRelacionamento("qualquer");
+      setMensagemCampanha(
+        "Oi {nome}! Feliz Dia dos Pais! 🎉 Que tal renovar o perfume hoje?"
+      );
+    } else if (preset === "namorados") {
+      setFiltroSexo("qualquer");
+      setFiltroFilhos("qualquer");
+      setFiltroRelacionamento("sim");
+      setMensagemCampanha(
+        "Oi {nome}! Feliz Dia dos Namorados! 💕 Separei uma sugestão de perfume que combina bem pra ocasião, quer ver?"
+      );
+    } else if (preset === "mulher") {
+      setFiltroSexo("feminino");
+      setFiltroFilhos("qualquer");
+      setFiltroRelacionamento("qualquer");
+      setMensagemCampanha(
+        "Oi {nome}! Feliz Dia Internacional da Mulher! 💜 Você merece se cuidar hoje."
+      );
+    } else {
+      setFiltroSexo("qualquer");
+      setFiltroFilhos("qualquer");
+      setFiltroRelacionamento("qualquer");
+      setMensagemCampanha("Oi {nome}! Passando aqui com uma novidade especial pra você! 😊");
+    }
+  }
+
+  const clientesCampanha = clientes.filter((c) => {
+    if (!c.telefone) return false;
+    if (filtroSexo !== "qualquer" && c.sexo !== filtroSexo) return false;
+    if (filtroRelacionamento !== "qualquer") {
+      if (c.emRelacionamento !== (filtroRelacionamento === "sim")) return false;
+    }
+    if (filtroFilhos !== "qualquer") {
+      if (c.temFilhos !== (filtroFilhos === "sim")) return false;
+    }
+    return true;
+  });
+
   return (
     <div>
       <div className="page-header">
@@ -489,7 +552,14 @@ function TabInicio() {
       </div>
 
       <div className="panel-card" style={{ marginTop: 16 }}>
-        <h2 className="panel-title">Tarefas</h2>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <h2 className="panel-title" style={{ marginBottom: 0 }}>
+            Tarefas
+          </h2>
+          <button className="btn btn-ghost btn-sm" onClick={() => setCampanhaAberta(true)}>
+            Campanha
+          </button>
+        </div>
         {tarefas.length === 0 ? (
           <div className="empty-state">
             <div className="title">Nenhuma tarefa por aqui 🎉</div>
@@ -631,6 +701,161 @@ function TabInicio() {
                 Marcar como feito
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {campanhaAberta && (
+        <div className="sheet-overlay" onClick={() => setCampanhaAberta(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <div className="sheet-header">
+              <h2>Campanha por data</h2>
+              <button className="sheet-close" onClick={() => setCampanhaAberta(false)}>
+                ×
+              </button>
+            </div>
+
+            <div
+              className="row-card-actions"
+              style={{ marginBottom: 14, flexWrap: "wrap" }}
+            >
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => aplicarPresetCampanha("maes")}
+              >
+                Dia das Mães
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => aplicarPresetCampanha("pais")}
+              >
+                Dia dos Pais
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => aplicarPresetCampanha("namorados")}
+              >
+                Dia dos Namorados
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => aplicarPresetCampanha("mulher")}
+              >
+                Dia da Mulher
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => aplicarPresetCampanha("limpar")}
+              >
+                Limpar filtro
+              </button>
+            </div>
+
+            <div className="form-row">
+              <label>Sexo</label>
+              <select
+                className="select-input"
+                value={filtroSexo}
+                onChange={(e) => setFiltroSexo(e.target.value as typeof filtroSexo)}
+              >
+                <option value="qualquer">Qualquer</option>
+                <option value="feminino">Feminino</option>
+                <option value="masculino">Masculino</option>
+              </select>
+            </div>
+            <div className="form-row">
+              <label>Em relacionamento</label>
+              <select
+                className="select-input"
+                value={filtroRelacionamento}
+                onChange={(e) =>
+                  setFiltroRelacionamento(e.target.value as typeof filtroRelacionamento)
+                }
+              >
+                <option value="qualquer">Qualquer</option>
+                <option value="sim">Sim</option>
+                <option value="nao">Não</option>
+              </select>
+            </div>
+            <div className="form-row">
+              <label>Tem filhos</label>
+              <select
+                className="select-input"
+                value={filtroFilhos}
+                onChange={(e) => setFiltroFilhos(e.target.value as typeof filtroFilhos)}
+              >
+                <option value="qualquer">Qualquer</option>
+                <option value="sim">Sim</option>
+                <option value="nao">Não</option>
+              </select>
+            </div>
+
+            <div className="form-row">
+              <label>Mensagem (use {"{nome}"} pra personalizar)</label>
+              <textarea
+                className="textarea-input"
+                rows={4}
+                value={mensagemCampanha}
+                onChange={(e) => setMensagemCampanha(e.target.value)}
+              />
+            </div>
+
+            <p style={{ color: "var(--muted)", fontSize: "0.82rem", margin: "4px 0 12px" }}>
+              {clientesCampanha.length} cliente(s) com telefone cadastrado encontrados
+              com esse filtro.
+            </p>
+
+            {clientesCampanha.length === 0 ? (
+              <div className="empty-state">
+                <p>Nenhum cliente encontrado. Ajuste o filtro ou complete o cadastro de sexo/relacionamento/filhos dos clientes.</p>
+              </div>
+            ) : (
+              <div className="list">
+                {clientesCampanha.map((c) => {
+                  const enviado = enviadosCampanha.has(c.id);
+                  return (
+                    <div key={c.id} className="row-card">
+                      <div className="row-card-body">
+                        <div className="row-card-title">{c.nome}</div>
+                        {enviado && (
+                          <div className="row-card-sub">
+                            <span className="badge badge-ok">Enviado</span>
+                          </div>
+                        )}
+                      </div>
+                      <a
+                        className="btn btn-primary"
+                        href={linkWhatsApp(
+                          c.telefone,
+                          mensagemCampanha.replace(/\{nome\}/g, primeiroNome(c.nome))
+                        )}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="Enviar no WhatsApp"
+                        title="Enviar no WhatsApp"
+                        onClick={() =>
+                          setEnviadosCampanha((prev) => new Set(prev).add(c.id))
+                        }
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: "50%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: 0,
+                          opacity: enviado ? 0.5 : 1,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <IconWhatsApp />
+                      </a>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
