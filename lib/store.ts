@@ -328,7 +328,17 @@ export async function removeCliente(id: string): Promise<Cliente[]> {
 // pra nao duplicar. owner_id e preenchido sozinho pelo default da coluna
 // (auth.uid()), nao precisa setar aqui.
 export async function importarClientes(
-  contatos: { nome: string; telefone: string; email: string }[]
+  contatos: {
+    nome: string;
+    telefone: string;
+    email: string;
+    origem?: string;
+    sexo?: "masculino" | "feminino" | null;
+    emRelacionamento?: boolean | null;
+    temFilhos?: boolean | null;
+    aniversarioDia?: number | null;
+    aniversarioMes?: number | null;
+  }[]
 ): Promise<{ importados: number; clientes: Cliente[] }> {
   const supabase = createClient();
   const existentes = await getClientes();
@@ -337,7 +347,17 @@ export async function importarClientes(
   );
 
   const vistosNesseLote = new Set<string>();
-  const linhas: { nome: string; telefone: string; email: string; origem: string }[] = [];
+  const linhas: {
+    nome: string;
+    telefone: string;
+    email: string;
+    origem: string;
+    sexo: "masculino" | "feminino" | null;
+    em_relacionamento: boolean | null;
+    tem_filhos: boolean | null;
+    aniversario_dia: number | null;
+    aniversario_mes: number | null;
+  }[] = [];
 
   for (const c of contatos) {
     const telefone = normalizarTelefone(c.telefone);
@@ -349,7 +369,12 @@ export async function importarClientes(
       nome: c.nome,
       telefone,
       email: c.email || "",
-      origem: "Importado dos contatos",
+      origem: c.origem || "Importado dos contatos",
+      sexo: c.sexo ?? null,
+      em_relacionamento: c.emRelacionamento ?? null,
+      tem_filhos: c.temFilhos ?? null,
+      aniversario_dia: c.aniversarioDia ?? null,
+      aniversario_mes: c.aniversarioMes ?? null,
     });
   }
 
