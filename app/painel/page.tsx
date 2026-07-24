@@ -35,6 +35,11 @@ import {
   limparFollowupCliente,
   marcarBoasVindasContatado,
   marcarIndicacaoPedida,
+  marcarInatividadeContatada,
+  marcarAniversarioPedido,
+  getTemplates,
+  salvarTemplate,
+  restaurarTemplatePadrao,
 } from "@/lib/store";
 import { extrairItensNotaFiscal, casarComCatalogo, type ItemNotaFiscal } from "@/lib/nota-fiscal";
 
@@ -87,12 +92,51 @@ function mensagemIndicacao(nome: string, produto?: string): string {
   return `Oi ${nome}! Fico muito feliz que você escolheu ${referencia} 💛 Se tiver alguém que também usaria, me manda o contato? Prometo cuidar bem dela, igual cuidei de você!`;
 }
 
-function gerarMensagem(tipo: TipoTarefa, nome: string, ultimoProduto?: string): string {
+function mensagemInativo(nome: string): string {
+  return `Oi ${nome}! Faz tempo que a gente não se fala 💛 Passando só pra saber como você está e se posso te ajudar com alguma coisa. Sentimos sua falta por aqui!`;
+}
+
+function mensagemPedirAniversario(nome: string): string {
+  return `Oi ${nome}! Estou atualizando meu cadastro de clientes aqui 📋 Você pode me passar sua data de aniversário (dia e mês)? Sempre preparo um agrado especial pros meus clientes nessa data! 🎁`;
+}
+
+// Tipos de tarefa que têm mensagem editável (fora do fluxo especial de
+// "cadastro incompleto", que não manda mensagem — não tem telefone ainda).
+const TIPOS_TAREFA_MENSAGEM: { tipo: TipoTarefa; label: string }[] = [
+  { tipo: "novo_cadastro", label: "Boas-vindas" },
+  { tipo: "aniversario", label: "Aniversário" },
+  { tipo: "renovar", label: "Renovar pedido" },
+  { tipo: "pos_venda", label: "Pós-venda" },
+  { tipo: "indicacao", label: "Pedir indicação" },
+  { tipo: "inativo", label: "Cliente inativo" },
+  { tipo: "pedir_aniversario", label: "Pedir data de aniversário" },
+];
+
+function mensagemPadraoPorTipo(tipo: TipoTarefa, nome: string, ultimoProduto?: string): string {
   if (tipo === "novo_cadastro") return mensagemBoasVindas(nome);
   if (tipo === "aniversario") return mensagemAniversario(nome);
   if (tipo === "renovar") return mensagemRenovarPedido(nome, ultimoProduto);
   if (tipo === "indicacao") return mensagemIndicacao(nome, ultimoProduto);
+  if (tipo === "inativo") return mensagemInativo(nome);
+  if (tipo === "pedir_aniversario") return mensagemPedirAniversario(nome);
   return mensagemPosVenda(nome);
+}
+
+// Gera a mensagem final: usa o template customizado da conta se existir
+// (trocando {nome} e {produto}), senão cai no texto padrao.
+function gerarMensagem(
+  tipo: TipoTarefa,
+  nome: string,
+  ultimoProduto?: string,
+  templates?: Record<string, string>
+): string {
+  const customizado = templates?.[tipo];
+  if (customizado) {
+    return customizado
+      .replace(/\{nome\}/g, nome)
+      .replace(/\{produto\}/g, ultimoProduto || "os produtos");
+  }
+  return mensagemPadraoPorTipo(tipo, nome, ultimoProduto);
 }
 
 function rotuloTempoDesde(data: Date, hoje: Date): string {
@@ -128,7 +172,15 @@ function rotuloRelativo(data: Date, hoje: Date): string {
   return `Em ${diffDias} dias (${formatada})`;
 }
 
-type TipoTarefa = "novo_cadastro" | "aniversario" | "renovar" | "pos_venda" | "indicacao";
+type TipoTarefa =
+  | "novo_cadastro"
+  | "aniversario"
+  | "renovar"
+  | "pos_venda"
+  | "indicacao"
+  | "inativo"
+  | "pedir_aniversario"
+  | "cadastro_incompleto";
 
 type Tarefa = {
   id: string;
@@ -139,6 +191,17 @@ type Tarefa = {
   dataReferencia: string;
   mensagemPadrao: string;
   vendaId?: string;
+};
+
+const CONFIG_TAREFA: Record<TipoTarefa, { label: string; emoji: string; badge: string }> = {
+  cadastro_incompleto: { label: "Cadastro incompleto", emoji: "⚠️", badge: "badge-low" },
+  novo_cadastro: { label: "Boas-vindas", emoji: "👋", badge: "badge-info" },
+  aniversario: { label: "Aniversário", emoji: "🎂", badge: "badge-warn" },
+  pedir_aniversario: { label: "Pedir aniversário", emoji: "📋", badge: "badge-info" },
+  renovar: { label: "Renovar pedido", emoji: "🔁", badge: "badge-low" },
+  pos_venda: { label: "Pós-venda", emoji: "💬", badge: "badge-ok" },
+  indicacao: { label: "Pedir indicação", emoji: "🤝", badge: "badge-info" },
+  inativo: { label: "Cliente inativo", emoji: "😴", badge: "badge-low" },
 };
 
 const LOGO_URL =
@@ -311,10 +374,17 @@ function IconMenu({ className }: { className?: string }) {
 
 /* ---------------------------- Início (Dashboard) ---------------------------- */
 
-function TabInicio() {
+function TabInicio({
+  onCompletarCadastro,
+}: {
+  onCompletarCadastro: (clienteId: string) => void;
+}) {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [vendas, setVendas] = useState<Venda[]>([]);
+  const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [templates, setTemplates] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
   const [tarefaAberta, setTarefaAberta] = useState<Tarefa | null>(null);
   const [modeloSelecionado, setModeloSelecionado] = useState<TipoTarefa | null>(null);
@@ -322,11 +392,21 @@ function TabInicio() {
   const [dispensados, setDispensados] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    Promise.all([getProdutos(), getClientes(), getVendas()])
-      .then(([p, c, v]) => {
+    Promise.all([
+      getProdutos(),
+      getClientes(),
+      getVendas(),
+      getFinanceiro(),
+      getPerfil(),
+      getTemplates(),
+    ])
+      .then(([p, c, v, l, perf, temp]) => {
         setProdutos(p);
         setClientes(c);
         setVendas(v);
+        setLancamentos(l);
+        setPerfil(perf);
+        setTemplates(temp);
       })
       .finally(() => setCarregando(false));
   }, []);
@@ -352,6 +432,20 @@ function TabInicio() {
       ? vendasConcluidas.reduce((s, v) => s + v.total, 0) / vendasConcluidas.length
       : 0;
 
+  // Pontos de graduação = total gasto comprando estoque da Ozonteck (1 BRL = 1
+  // ponto), rastreado como saída no financeiro sempre que uma entrada de
+  // estoque é confirmada.
+  const pontosGraduacao = lancamentos
+    .filter((l) => l.tipo === "saida" && l.categoria === "Compra de estoque")
+    .reduce((s, l) => s + l.valor, 0);
+  const metaPontuacao = perfil?.metaPontuacao ?? 0;
+  const progressoGraduacao =
+    metaPontuacao > 0 ? Math.min(100, (pontosGraduacao / metaPontuacao) * 100) : 0;
+
+  const metaVenda = perfil?.metaVenda ?? 0;
+  const progressoVendaMes =
+    metaVenda > 0 ? Math.min(100, (valorVendasMes / metaVenda) * 100) : 0;
+
   // Última venda concluída por cliente, pra citar o produto na mensagem de renovação.
   const ultimaVendaPorCliente = new Map<string, Venda>();
   for (const v of vendasConcluidas) {
@@ -374,7 +468,7 @@ function TabInicio() {
       clienteNome: c.nome,
       telefone: c.telefone,
       dataReferencia: rotuloTempoDesde(new Date(c.criadoEm), agora),
-      mensagemPadrao: mensagemBoasVindas(primeiroNome(c.nome)),
+      mensagemPadrao: gerarMensagem("novo_cadastro", primeiroNome(c.nome), undefined, templates),
     }));
 
   const tarefasAniversario: Tarefa[] = clientes
@@ -397,7 +491,7 @@ function TabInicio() {
       clienteNome: c.nome,
       telefone: c.telefone,
       dataReferencia: rotuloRelativo(proxima, agora),
-      mensagemPadrao: mensagemAniversario(primeiroNome(c.nome)),
+      mensagemPadrao: gerarMensagem("aniversario", primeiroNome(c.nome), undefined, templates),
     }));
 
   const tarefasRenovar: Tarefa[] = clientes
@@ -415,7 +509,7 @@ function TabInicio() {
         clienteNome: c.nome,
         telefone: c.telefone,
         dataReferencia: rotuloRelativo(new Date(c.proximoFollowup!), agora),
-        mensagemPadrao: mensagemRenovarPedido(primeiroNome(c.nome), ultimoProduto),
+        mensagemPadrao: gerarMensagem("renovar", primeiroNome(c.nome), ultimoProduto, templates),
       };
     });
 
@@ -436,7 +530,7 @@ function TabInicio() {
         clienteNome: cliente.nome,
         telefone: cliente.telefone,
         dataReferencia: `Venda de ${new Date(v.data).toLocaleDateString("pt-BR")}`,
-        mensagemPadrao: mensagemPosVenda(primeiroNome(cliente.nome)),
+        mensagemPadrao: gerarMensagem("pos_venda", primeiroNome(cliente.nome), v.itens?.[0]?.nome, templates),
         vendaId: v.id,
       };
     });
@@ -458,17 +552,83 @@ function TabInicio() {
         clienteNome: cliente.nome,
         telefone: cliente.telefone,
         dataReferencia: `Venda de ${new Date(v.data).toLocaleDateString("pt-BR")}`,
-        mensagemPadrao: mensagemIndicacao(primeiroNome(cliente.nome), v.itens?.[0]?.nome),
+        mensagemPadrao: gerarMensagem("indicacao", primeiroNome(cliente.nome), v.itens?.[0]?.nome, templates),
         vendaId: v.id,
       };
     });
 
+  // Cliente inativo: comprou pelo menos uma vez, mas nao volta ha 60+ dias.
+  // Reseta sozinho sempre que ele compra de novo (compara com a data da
+  // ultima venda, nao so uma flag fixa).
+  const JANELA_INATIVIDADE_DIAS = 60;
+  const tarefasInativo: Tarefa[] = Array.from(ultimaVendaPorCliente.entries())
+    .filter(([clienteId, venda]) => {
+      const cliente = clientes.find((c) => c.id === clienteId);
+      if (!cliente?.telefone) return false;
+      const dias = (agora.getTime() - new Date(venda.data).getTime()) / 86400000;
+      if (dias < JANELA_INATIVIDADE_DIAS) return false;
+      if (
+        cliente.inatividadeContatadaEm &&
+        new Date(cliente.inatividadeContatadaEm) > new Date(venda.data)
+      ) {
+        return false;
+      }
+      return true;
+    })
+    .map(([clienteId, venda]) => {
+      const cliente = clientes.find((c) => c.id === clienteId)!;
+      return {
+        id: `inativo-${cliente.id}`,
+        tipo: "inativo" as const,
+        clienteId: cliente.id,
+        clienteNome: cliente.nome,
+        telefone: cliente.telefone,
+        dataReferencia: `Última compra em ${new Date(venda.data).toLocaleDateString("pt-BR")}`,
+        mensagemPadrao: gerarMensagem("inativo", primeiroNome(cliente.nome), undefined, templates),
+      };
+    });
+
+  // Pedir data de aniversário pra quem não tem preenchida.
+  const tarefasPedirAniversario: Tarefa[] = clientes
+    .filter(
+      (c) =>
+        c.telefone &&
+        !c.aniversarioPedido &&
+        (!c.aniversarioDia || !c.aniversarioMes)
+    )
+    .map((c) => ({
+      id: `pedir-aniversario-${c.id}`,
+      tipo: "pedir_aniversario" as const,
+      clienteId: c.id,
+      clienteNome: c.nome,
+      telefone: c.telefone,
+      dataReferencia: "Data de nascimento não informada",
+      mensagemPadrao: gerarMensagem("pedir_aniversario", primeiroNome(c.nome), undefined, templates),
+    }));
+
+  // Cadastro incompleto (sem WhatsApp): não manda mensagem, leva direto pra
+  // completar o cadastro do cliente.
+  const tarefasCadastroIncompleto: Tarefa[] = clientes
+    .filter((c) => !c.telefone)
+    .map((c) => ({
+      id: `cadastro-incompleto-${c.id}`,
+      tipo: "cadastro_incompleto" as const,
+      clienteId: c.id,
+      clienteNome: c.nome,
+      telefone: "",
+      dataReferencia: "Sem WhatsApp cadastrado",
+      mensagemPadrao: "",
+    }));
+
   const tarefas = [
+    ...tarefasCadastroIncompleto,
     ...tarefasNovoCadastro,
     ...tarefasAniversario,
+    ...tarefasPedirAniversario,
     ...tarefasRenovar,
     ...tarefasPosVenda,
     ...tarefasIndicacao,
+    ...tarefasInativo,
   ].filter((t) => !dispensados.has(t.id));
 
   async function concluirTarefa(t: Tarefa) {
@@ -480,6 +640,10 @@ function TabInicio() {
       setVendas(await marcarIndicacaoPedida(t.vendaId));
     } else if (t.tipo === "novo_cadastro") {
       setClientes(await marcarBoasVindasContatado(t.clienteId));
+    } else if (t.tipo === "inativo") {
+      setClientes(await marcarInatividadeContatada(t.clienteId));
+    } else if (t.tipo === "pedir_aniversario") {
+      setClientes(await marcarAniversarioPedido(t.clienteId));
     } else {
       setDispensados((prev) => new Set(prev).add(t.id));
     }
@@ -487,6 +651,10 @@ function TabInicio() {
   }
 
   function abrirTarefa(t: Tarefa) {
+    if (t.tipo === "cadastro_incompleto") {
+      onCompletarCadastro(t.clienteId);
+      return;
+    }
     setTarefaAberta(t);
     setModeloSelecionado(t.tipo);
   }
@@ -525,6 +693,44 @@ function TabInicio() {
         </div>
       </div>
 
+      {(metaVenda > 0 || metaPontuacao > 0) && (
+        <div className="panel-card" style={{ marginTop: 16 }}>
+          <h2 className="panel-title">Metas</h2>
+          {metaVenda > 0 && (
+            <div style={{ marginBottom: metaPontuacao > 0 ? 18 : 0 }}>
+              <div className="row-card-sub" style={{ marginBottom: 6 }}>
+                Vendas do mês: {currency(valorVendasMes)} de {currency(metaVenda)} (
+                {Math.round(progressoVendaMes)}%)
+              </div>
+              <div className="progress-track">
+                <div
+                  className="progress-fill"
+                  style={{ width: `${progressoVendaMes}%`, background: "var(--success)" }}
+                />
+              </div>
+            </div>
+          )}
+          {metaPontuacao > 0 && (
+            <div>
+              <div className="row-card-sub" style={{ marginBottom: 6 }}>
+                Graduação: {Math.round(pontosGraduacao)} de {Math.round(metaPontuacao)} pontos (
+                {Math.round(progressoGraduacao)}%)
+              </div>
+              <div className="progress-track">
+                <div
+                  className="progress-fill"
+                  style={{ width: `${progressoGraduacao}%` }}
+                />
+              </div>
+              <p style={{ color: "var(--muted)", fontSize: "0.76rem", marginTop: 6 }}>
+                Pontos somam o valor investido em compras de estoque (1 real = 1
+                ponto).
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="panel-card" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
           <h2 className="panel-title" style={{ marginBottom: 0 }}>
@@ -535,44 +741,18 @@ function TabInicio() {
           <div className="empty-state">
             <div className="title">Nenhuma tarefa por aqui 🎉</div>
             <p>
-              Boas-vindas de novos cadastros, aniversários dos próximos 30
-              dias, follow-ups agendados, pós-vendas e pedidos de indicação
-              pendentes aparecem aqui.
+              Boas-vindas, aniversários, follow-ups, pós-vendas, indicações,
+              clientes inativos e cadastros incompletos aparecem aqui
+              automaticamente.
             </p>
           </div>
         ) : (
           <div className="list">
             {tarefas.map((t) => {
-              const badgeClasse =
-                t.tipo === "novo_cadastro"
-                  ? "badge-info"
-                  : t.tipo === "aniversario"
-                  ? "badge-warn"
-                  : t.tipo === "renovar"
-                  ? "badge-low"
-                  : t.tipo === "indicacao"
-                  ? "badge-info"
-                  : "badge-ok";
-              const label =
-                t.tipo === "novo_cadastro"
-                  ? "Boas-vindas"
-                  : t.tipo === "aniversario"
-                  ? "Aniversário"
-                  : t.tipo === "renovar"
-                  ? "Renovar pedido"
-                  : t.tipo === "indicacao"
-                  ? "Pedir indicação"
-                  : "Pós-venda";
-              const emoji =
-                t.tipo === "novo_cadastro"
-                  ? "👋"
-                  : t.tipo === "aniversario"
-                  ? "🎂"
-                  : t.tipo === "renovar"
-                  ? "🔁"
-                  : t.tipo === "indicacao"
-                  ? "🤝"
-                  : "💬";
+              const cfg = CONFIG_TAREFA[t.tipo];
+              const badgeClasse = cfg.badge;
+              const label = cfg.label;
+              const emoji = cfg.emoji;
 
               return (
                 <div
@@ -619,16 +799,19 @@ function TabInicio() {
                   const novaMensagem = gerarMensagem(
                     novoTipo,
                     primeiroNome(tarefaAberta.clienteNome),
-                    ultima?.itens?.[0]?.nome
+                    ultima?.itens?.[0]?.nome,
+                    templates
                   );
                   setMensagensEditadas((m) => ({ ...m, [tarefaAberta.id]: novaMensagem }));
                 }}
               >
                 <option value="novo_cadastro">Boas-vindas</option>
                 <option value="aniversario">Aniversário</option>
+                <option value="pedir_aniversario">Pedir aniversário</option>
                 <option value="renovar">Renovar pedido</option>
                 <option value="pos_venda">Pós-venda</option>
                 <option value="indicacao">Pedir indicação</option>
+                <option value="inativo">Cliente inativo</option>
               </select>
             </div>
 
@@ -1095,6 +1278,24 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
         atualizados = await ajustarEstoque(item.produto.id, item.quantidade);
       }
       setProdutos(atualizados);
+
+      // Toda entrada de estoque é dinheiro saindo pra comprar da Ozonteck —
+      // registra automaticamente no financeiro (usa o custo, que é o que
+      // realmente é pago, não o preço de venda). Esse valor também alimenta
+      // o progresso de graduação na Início (1 real investido = 1 ponto).
+      const valorTotal = itens.reduce(
+        (soma, item) => soma + item.quantidade * item.produto.custo,
+        0
+      );
+      const totalUnidades = itens.reduce((soma, item) => soma + item.quantidade, 0);
+      if (valorTotal > 0) {
+        await addLancamento({
+          tipo: "saida",
+          categoria: "Compra de estoque",
+          descricao: `Entrada de estoque: ${itens.length} produto(s), ${totalUnidades} un.`,
+          valor: valorTotal,
+        });
+      }
     } finally {
       setSalvandoEntrada(false);
     }
@@ -1657,6 +1858,8 @@ function TabClientes({
                 sexo: null,
                 emRelacionamento: null,
                 temFilhos: null,
+                inatividadeContatadaEm: null,
+                aniversarioPedido: false,
               })
             }
           >
@@ -3267,6 +3470,109 @@ function TabPerfil() {
       >
         {salvando ? "Salvando..." : "Salvar alterações"}
       </button>
+
+      <EditorTemplates />
+    </div>
+  );
+}
+
+function EditorTemplates() {
+  const [templates, setTemplates] = useState<Record<string, string>>({});
+  const [carregando, setCarregando] = useState(true);
+  const [tipoSelecionado, setTipoSelecionado] = useState<TipoTarefa>("novo_cadastro");
+  const [texto, setTexto] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    getTemplates()
+      .then(setTemplates)
+      .finally(() => setCarregando(false));
+  }, []);
+
+  useEffect(() => {
+    setTexto(
+      templates[tipoSelecionado] ??
+        mensagemPadraoPorTipo(tipoSelecionado, "{nome}", "{produto}")
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoSelecionado, templates]);
+
+  async function salvar() {
+    setSalvando(true);
+    try {
+      await salvarTemplate(tipoSelecionado, texto);
+      setTemplates((t) => ({ ...t, [tipoSelecionado]: texto }));
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function restaurar() {
+    setSalvando(true);
+    try {
+      await restaurarTemplatePadrao(tipoSelecionado);
+      setTemplates((t) => {
+        const novo = { ...t };
+        delete novo[tipoSelecionado];
+        return novo;
+      });
+      setTexto(mensagemPadraoPorTipo(tipoSelecionado, "{nome}", "{produto}"));
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  if (carregando) {
+    return (
+      <div className="panel-card" style={{ marginTop: 16 }}>
+        <div className="empty-state">Carregando templates...</div>
+      </div>
+    );
+  }
+
+  const customizado = Boolean(templates[tipoSelecionado]);
+
+  return (
+    <div className="panel-card" style={{ marginTop: 16 }}>
+      <h2 className="panel-title">Templates de mensagem</h2>
+      <p style={{ color: "var(--muted)", fontSize: "0.82rem", marginBottom: 12 }}>
+        Personalize o texto sugerido de cada tipo de tarefa. Use {"{nome}"} e{" "}
+        {"{produto}"} que o sistema substitui automaticamente ao enviar.
+      </p>
+      <div className="form-row">
+        <label>Tipo de mensagem</label>
+        <select
+          className="select-input"
+          value={tipoSelecionado}
+          onChange={(e) => setTipoSelecionado(e.target.value as TipoTarefa)}
+        >
+          {TIPOS_TAREFA_MENSAGEM.map((t) => (
+            <option key={t.tipo} value={t.tipo}>
+              {t.label}
+              {templates[t.tipo] ? " • personalizado" : ""}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="form-row">
+        <label>Mensagem</label>
+        <textarea
+          className="textarea-input"
+          rows={5}
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+        />
+      </div>
+      <div className="row-card-actions">
+        <button className="btn btn-primary" disabled={salvando} onClick={salvar}>
+          {salvando ? "Salvando..." : "Salvar"}
+        </button>
+        {customizado && (
+          <button className="btn btn-ghost" disabled={salvando} onClick={restaurar}>
+            Restaurar padrão
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -3512,7 +3818,14 @@ function PainelShell() {
         </div>
       </header>
       <main className="main">
-        {aba === "inicio" && <TabInicio />}
+        {aba === "inicio" && (
+          <TabInicio
+            onCompletarCadastro={(clienteId) => {
+              setClienteEditarId(clienteId);
+              irParaAba("clientes");
+            }}
+          />
+        )}
         {aba === "estoque" && (
           <TabEstoque
             onVenderProduto={(produtoId) => {
