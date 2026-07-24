@@ -1787,6 +1787,28 @@ function TabClientes({
   const [lendoArquivo, setLendoArquivo] = useState(false);
   const [importando, setImportando] = useState(false);
   const [avisoImportacao, setAvisoImportacao] = useState("");
+  const [avisoCompartilhamento, setAvisoCompartilhamento] = useState("");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    const importados = searchParams.get("importados");
+    const erro = searchParams.get("importar_erro");
+    if (importados !== null) {
+      setAvisoCompartilhamento(
+        Number(importados) > 0
+          ? `${importados} contato(s) importado(s) via compartilhamento! 🎉`
+          : "Nenhum contato novo pra importar (já estavam todos cadastrados)."
+      );
+      router.replace("/painel?aba=clientes", { scroll: false });
+    } else if (erro) {
+      setAvisoCompartilhamento(
+        "Não consegui importar esse arquivo compartilhado. Tenta pelo botão \"Importar contatos\" aqui na tela."
+      );
+      router.replace("/painel?aba=clientes", { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     Promise.all([getClientes(), getVendas()])
@@ -1898,6 +1920,16 @@ function TabClientes({
         <h1>Clientes</h1>
         <p>Cadastro e histórico de relacionamento.</p>
       </div>
+
+      {avisoCompartilhamento && (
+        <div
+          className="empty-state"
+          style={{ textAlign: "left", marginBottom: 16, cursor: "pointer" }}
+          onClick={() => setAvisoCompartilhamento("")}
+        >
+          {avisoCompartilhamento}
+        </div>
+      )}
 
       <div className="kpi-scroll">
         <div className="kpi-card">
