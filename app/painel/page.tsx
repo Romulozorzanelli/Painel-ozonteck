@@ -393,6 +393,7 @@ function TabInicio({
   const [modeloSelecionado, setModeloSelecionado] = useState<TipoTarefa | null>(null);
   const [mensagensEditadas, setMensagensEditadas] = useState<Record<string, string>>({});
   const [dispensados, setDispensados] = useState<Set<string>>(new Set());
+  const [processandoTarefa, setProcessandoTarefa] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -635,22 +636,28 @@ function TabInicio({
   ].filter((t) => !dispensados.has(t.id));
 
   async function concluirTarefa(t: Tarefa) {
-    if (t.tipo === "renovar") {
-      setClientes(await limparFollowupCliente(t.clienteId));
-    } else if (t.tipo === "pos_venda" && t.vendaId) {
-      setVendas(await marcarPosVendaContatado(t.vendaId));
-    } else if (t.tipo === "indicacao" && t.vendaId) {
-      setVendas(await marcarIndicacaoPedida(t.vendaId));
-    } else if (t.tipo === "novo_cadastro") {
-      setClientes(await marcarBoasVindasContatado(t.clienteId));
-    } else if (t.tipo === "inativo") {
-      setClientes(await marcarInatividadeContatada(t.clienteId));
-    } else if (t.tipo === "pedir_aniversario") {
-      setClientes(await marcarAniversarioPedido(t.clienteId));
-    } else {
-      setDispensados((prev) => new Set(prev).add(t.id));
+    if (processandoTarefa) return;
+    setProcessandoTarefa(true);
+    try {
+      if (t.tipo === "renovar") {
+        setClientes(await limparFollowupCliente(t.clienteId));
+      } else if (t.tipo === "pos_venda" && t.vendaId) {
+        setVendas(await marcarPosVendaContatado(t.vendaId));
+      } else if (t.tipo === "indicacao" && t.vendaId) {
+        setVendas(await marcarIndicacaoPedida(t.vendaId));
+      } else if (t.tipo === "novo_cadastro") {
+        setClientes(await marcarBoasVindasContatado(t.clienteId));
+      } else if (t.tipo === "inativo") {
+        setClientes(await marcarInatividadeContatada(t.clienteId));
+      } else if (t.tipo === "pedir_aniversario") {
+        setClientes(await marcarAniversarioPedido(t.clienteId));
+      } else {
+        setDispensados((prev) => new Set(prev).add(t.id));
+      }
+    } finally {
+      setProcessandoTarefa(false);
+      setTarefaAberta(null);
     }
-    setTarefaAberta(null);
   }
 
   function abrirTarefa(t: Tarefa) {
@@ -841,7 +848,13 @@ function TabInicio({
                 rel="noreferrer"
                 aria-label="Enviar no WhatsApp"
                 title="Enviar no WhatsApp"
-                onClick={() => concluirTarefa(tarefaAberta)}
+                onClick={(e) => {
+                  if (processandoTarefa) {
+                    e.preventDefault();
+                    return;
+                  }
+                  concluirTarefa(tarefaAberta);
+                }}
                 style={{
                   width: 48,
                   height: 48,
@@ -850,12 +863,18 @@ function TabInicio({
                   alignItems: "center",
                   justifyContent: "center",
                   padding: 0,
+                  opacity: processandoTarefa ? 0.6 : 1,
+                  pointerEvents: processandoTarefa ? "none" : "auto",
                 }}
               >
                 <IconWhatsApp />
               </a>
-              <button className="btn btn-ghost" onClick={() => concluirTarefa(tarefaAberta)}>
-                Marcar como feito
+              <button
+                className="btn btn-ghost"
+                disabled={processandoTarefa}
+                onClick={() => concluirTarefa(tarefaAberta)}
+              >
+                {processandoTarefa ? "Salvando..." : "Marcar como feito"}
               </button>
             </div>
           </div>
@@ -1115,6 +1134,7 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
   >([]);
   const [importandoNota, setImportandoNota] = useState(false);
   const [salvandoEntrada, setSalvandoEntrada] = useState(false);
+  const [salvandoAjuste, setSalvandoAjuste] = useState(false);
   const [progressoNota, setProgressoNota] = useState<{ atual: number; total: number } | null>(
     null
   );
@@ -1182,12 +1202,17 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
   }
 
   async function confirmarAjuste() {
-    if (!ajuste) return;
+    if (!ajuste || salvandoAjuste) return;
     const delta = ajusteValor - ajuste.estoque;
-    if (delta !== 0) {
-      setProdutos(await ajustarEstoque(ajuste.id, delta));
+    setSalvandoAjuste(true);
+    try {
+      if (delta !== 0) {
+        setProdutos(await ajustarEstoque(ajuste.id, delta));
+      }
+    } finally {
+      setSalvandoAjuste(false);
+      setAjuste(null);
     }
-    setAjuste(null);
   }
 
   function fecharEntrada() {
@@ -1541,11 +1566,19 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
             </div>
 
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={() => setAjuste(null)}>
+              <button
+                className="btn btn-ghost"
+                disabled={salvandoAjuste}
+                onClick={() => setAjuste(null)}
+              >
                 Cancelar
               </button>
-              <button className="btn btn-primary" onClick={confirmarAjuste}>
-                Salvar
+              <button
+                className="btn btn-primary"
+                disabled={salvandoAjuste}
+                onClick={confirmarAjuste}
+              >
+                {salvandoAjuste ? "Salvando..." : "Salvar"}
               </button>
             </div>
           </div>
@@ -1786,6 +1819,8 @@ function TabClientes({
   const [selecionados, setSelecionados] = useState<Set<number>>(new Set());
   const [lendoArquivo, setLendoArquivo] = useState(false);
   const [importando, setImportando] = useState(false);
+  const [removendoCliente, setRemovendoCliente] = useState(false);
+  const [salvandoCliente, setSalvandoCliente] = useState(false);
   const [avisoImportacao, setAvisoImportacao] = useState("");
   const [avisoCompartilhamento, setAvisoCompartilhamento] = useState("");
   const searchParams = useSearchParams();
@@ -2109,14 +2144,21 @@ function TabClientes({
               </button>
               <button
                 className="btn btn-danger"
+                disabled={removendoCliente}
                 onClick={async () => {
+                  if (removendoCliente) return;
                   if (confirm("Remover este cliente?")) {
-                    setClientes(await removeCliente(detalhes.id));
-                    setDetalhes(null);
+                    setRemovendoCliente(true);
+                    try {
+                      setClientes(await removeCliente(detalhes.id));
+                      setDetalhes(null);
+                    } finally {
+                      setRemovendoCliente(false);
+                    }
                   }
                 }}
               >
-                Remover
+                {removendoCliente ? "Removendo..." : "Remover"}
               </button>
             </div>
           </div>
@@ -2306,19 +2348,28 @@ function TabClientes({
               </div>
             </div>
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={() => setEditando(null)}>
+              <button
+                className="btn btn-ghost"
+                disabled={salvandoCliente}
+                onClick={() => setEditando(null)}
+              >
                 Cancelar
               </button>
               <button
                 className="btn btn-primary"
+                disabled={salvandoCliente}
                 onClick={async () => {
-                  if (editando && editando.nome.trim()) {
+                  if (salvandoCliente || !editando || !editando.nome.trim()) return;
+                  setSalvandoCliente(true);
+                  try {
                     setClientes(await upsertCliente(editando));
                     setEditando(null);
+                  } finally {
+                    setSalvandoCliente(false);
                   }
                 }}
               >
-                Salvar
+                {salvandoCliente ? "Salvando..." : "Salvar"}
               </button>
             </div>
           </div>
@@ -2462,6 +2513,8 @@ function TabVendas({
   const [recebendo, setRecebendo] = useState<Venda | null>(null);
   const [formaRecebimento, setFormaRecebimento] = useState("Pix");
   const [salvando, setSalvando] = useState(false);
+  const [processandoDetalheVenda, setProcessandoDetalheVenda] = useState(false);
+  const [confirmandoRecebimento, setConfirmandoRecebimento] = useState(false);
 
   async function recarregar() {
     const [p, c, v] = await Promise.all([getProdutos(), getClientes(), getVendas()]);
@@ -2753,6 +2806,7 @@ function TabVendas({
               <button
                 className="btn btn-primary btn-block"
                 style={{ marginBottom: 8 }}
+                disabled={processandoDetalheVenda}
                 onClick={() => {
                   setRecebendo(detalhes);
                   setFormaRecebimento("Pix");
@@ -2766,6 +2820,7 @@ function TabVendas({
             <div className="form-actions" style={{ marginTop: 0 }}>
               <button
                 className="btn btn-ghost"
+                disabled={processandoDetalheVenda}
                 onClick={() => {
                   abrirEdicaoVenda(detalhes);
                   setDetalhes(null);
@@ -2776,26 +2831,40 @@ function TabVendas({
               {detalhes.status === "concluida" ? (
                 <button
                   className="btn btn-danger"
+                  disabled={processandoDetalheVenda}
                   onClick={async () => {
+                    if (processandoDetalheVenda) return;
                     if (confirm("Cancelar esta venda? O estoque será devolvido.")) {
-                      await cancelarVenda(detalhes.id);
-                      await recarregar();
-                      setDetalhes(null);
+                      setProcessandoDetalheVenda(true);
+                      try {
+                        await cancelarVenda(detalhes.id);
+                        await recarregar();
+                        setDetalhes(null);
+                      } finally {
+                        setProcessandoDetalheVenda(false);
+                      }
                     }
                   }}
                 >
-                  Cancelar
+                  {processandoDetalheVenda ? "Cancelando..." : "Cancelar"}
                 </button>
               ) : (
                 <button
                   className="btn btn-primary"
+                  disabled={processandoDetalheVenda}
                   onClick={async () => {
-                    await reativarVenda(detalhes.id);
-                    await recarregar();
-                    setDetalhes(null);
+                    if (processandoDetalheVenda) return;
+                    setProcessandoDetalheVenda(true);
+                    try {
+                      await reativarVenda(detalhes.id);
+                      await recarregar();
+                      setDetalhes(null);
+                    } finally {
+                      setProcessandoDetalheVenda(false);
+                    }
                   }}
                 >
-                  Reativar
+                  {processandoDetalheVenda ? "Reativando..." : "Reativar"}
                 </button>
               )}
             </div>
@@ -2803,18 +2872,25 @@ function TabVendas({
               <button
                 className="btn btn-danger btn-block"
                 style={{ marginTop: 8 }}
+                disabled={processandoDetalheVenda}
                 onClick={async () => {
+                  if (processandoDetalheVenda) return;
                   if (
                     confirm(
                       "Excluir este registro definitivamente? Essa ação não pode ser desfeita."
                     )
                   ) {
-                    setVendas(await excluirVenda(detalhes.id));
-                    setDetalhes(null);
+                    setProcessandoDetalheVenda(true);
+                    try {
+                      setVendas(await excluirVenda(detalhes.id));
+                      setDetalhes(null);
+                    } finally {
+                      setProcessandoDetalheVenda(false);
+                    }
                   }
                 }}
               >
-                Excluir registro
+                {processandoDetalheVenda ? "Excluindo..." : "Excluir registro"}
               </button>
             )}
           </div>
@@ -2843,17 +2919,28 @@ function TabVendas({
               </select>
             </div>
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={() => setRecebendo(null)}>
+              <button
+                className="btn btn-ghost"
+                disabled={confirmandoRecebimento}
+                onClick={() => setRecebendo(null)}
+              >
                 Cancelar
               </button>
               <button
                 className="btn btn-primary"
+                disabled={confirmandoRecebimento}
                 onClick={async () => {
-                  setVendas(await receberVenda(recebendo.id, formaRecebimento));
-                  setRecebendo(null);
+                  if (confirmandoRecebimento) return;
+                  setConfirmandoRecebimento(true);
+                  try {
+                    setVendas(await receberVenda(recebendo.id, formaRecebimento));
+                    setRecebendo(null);
+                  } finally {
+                    setConfirmandoRecebimento(false);
+                  }
                 }}
               >
-                Confirmar recebimento
+                {confirmandoRecebimento ? "Confirmando..." : "Confirmar recebimento"}
               </button>
             </div>
           </div>
@@ -3020,7 +3107,7 @@ function TabVendas({
             </div>
 
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={fecharSheet}>
+              <button className="btn btn-ghost" disabled={salvando} onClick={fecharSheet}>
                 Cancelar
               </button>
               <button
@@ -3072,6 +3159,8 @@ function TabFinanceiro() {
   const [categoria, setCategoria] = useState("Despesa operacional");
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState(0);
+  const [removendoId, setRemovendoId] = useState<string | null>(null);
+  const [salvandoLancamento, setSalvandoLancamento] = useState(false);
 
   useEffect(() => {
     Promise.all([getFinanceiro(), getProdutos()])
@@ -3181,13 +3270,20 @@ function TabFinanceiro() {
                   </span>
                   <button
                     className="btn btn-danger btn-sm"
+                    disabled={removendoId === l.id}
                     onClick={async () => {
+                      if (removendoId) return;
                       if (confirm("Remover este lançamento?")) {
-                        setLancamentos(await removerLancamento(l.id));
+                        setRemovendoId(l.id);
+                        try {
+                          setLancamentos(await removerLancamento(l.id));
+                        } finally {
+                          setRemovendoId(null);
+                        }
                       }
                     }}
                   >
-                    Remover
+                    {removendoId === l.id ? "Removendo..." : "Remover"}
                   </button>
                 </div>
               </div>
@@ -3243,21 +3339,30 @@ function TabFinanceiro() {
               </div>
             </div>
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={() => setSheetAberto(false)}>
+              <button
+                className="btn btn-ghost"
+                disabled={salvandoLancamento}
+                onClick={() => setSheetAberto(false)}
+              >
                 Cancelar
               </button>
               <button
                 className="btn btn-primary"
+                disabled={salvandoLancamento}
                 onClick={async () => {
-                  if (descricao.trim() && valor > 0) {
+                  if (salvandoLancamento || !descricao.trim() || valor <= 0) return;
+                  setSalvandoLancamento(true);
+                  try {
                     setLancamentos(await addLancamento({ tipo, categoria, descricao, valor }));
                     setSheetAberto(false);
                     setDescricao("");
                     setValor(0);
+                  } finally {
+                    setSalvandoLancamento(false);
                   }
                 }}
               >
-                Salvar
+                {salvandoLancamento ? "Salvando..." : "Adicionar"}
               </button>
             </div>
           </div>
