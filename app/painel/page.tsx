@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   type Produto,
@@ -3368,13 +3368,35 @@ const TABS = [
   { id: "perfil", label: "Perfil", Icon: IconPerfil },
 ] as const;
 
-export default function PainelPage() {
-  const [aba, setAba] = useState<(typeof TABS)[number]["id"]>("inicio");
+function PainelShell() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  function abaValida(valor: string | null): (typeof TABS)[number]["id"] {
+    return TABS.some((t) => t.id === valor) ? (valor as (typeof TABS)[number]["id"]) : "inicio";
+  }
+
+  const [aba, setAbaEstado] = useState<(typeof TABS)[number]["id"]>(() =>
+    abaValida(searchParams.get("aba"))
+  );
   const [vendaClienteId, setVendaClienteId] = useState<string | null>(null);
   const [vendaProdutoId, setVendaProdutoId] = useState<string | null>(null);
   const [clienteEditarId, setClienteEditarId] = useState<string | null>(null);
-  const router = useRouter();
   const atual = TABS.find((t) => t.id === aba)!;
+
+  // Mantem a aba sincronizada com a URL (?aba=...): trocar de aba empilha uma
+  // entrada no historico do navegador, e o botao voltar troca de aba em vez
+  // de sair do app inteiro (que era o problema antes).
+  function irParaAba(novaAba: (typeof TABS)[number]["id"]) {
+    setAbaEstado(novaAba);
+    router.push(`/painel?aba=${novaAba}`, { scroll: false });
+  }
+
+  useEffect(() => {
+    const paramAba = abaValida(searchParams.get("aba"));
+    setAbaEstado((atual) => (atual === paramAba ? atual : paramAba));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [carregandoPerfil, setCarregandoPerfil] = useState(true);
@@ -3431,7 +3453,7 @@ export default function PainelPage() {
           <TabEstoque
             onVenderProduto={(produtoId) => {
               setVendaProdutoId(produtoId);
-              setAba("vendas");
+              irParaAba("vendas");
             }}
           />
         )}
@@ -3439,7 +3461,7 @@ export default function PainelPage() {
           <TabClientes
             onNovaVenda={(clienteId) => {
               setVendaClienteId(clienteId);
-              setAba("vendas");
+              irParaAba("vendas");
             }}
             clienteParaEditar={clienteEditarId}
             aoConsumirClienteParaEditar={() => setClienteEditarId(null)}
@@ -3453,7 +3475,7 @@ export default function PainelPage() {
             aoConsumirProdutoPreSelecao={() => setVendaProdutoId(null)}
             onCompletarWhatsapp={(clienteId) => {
               setClienteEditarId(clienteId);
-              setAba("clientes");
+              irParaAba("clientes");
             }}
           />
         )}
@@ -3465,7 +3487,7 @@ export default function PainelPage() {
           <button
             key={t.id}
             className={"bottom-nav-item " + (aba === t.id ? "active" : "")}
-            onClick={() => setAba(t.id)}
+            onClick={() => irParaAba(t.id)}
           >
             <t.Icon className="icon" />
             {t.label}
@@ -3473,5 +3495,21 @@ export default function PainelPage() {
         ))}
       </nav>
     </div>
+  );
+}
+
+export default function PainelPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="app-shell">
+          <div className="empty-state" style={{ margin: "auto" }}>
+            Carregando...
+          </div>
+        </div>
+      }
+    >
+      <PainelShell />
+    </Suspense>
   );
 }
