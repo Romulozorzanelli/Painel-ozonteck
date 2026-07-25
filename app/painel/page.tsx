@@ -42,6 +42,11 @@ import {
   restaurarTemplatePadrao,
   importarClientes,
   normalizarTelefone,
+  getCatalogoConfig,
+  salvarCatalogoConfig,
+  verificarSlugDisponivel,
+  CATEGORIAS_CATALOGO,
+  type CatalogoConfig,
 } from "@/lib/store";
 import { extrairItensNotaFiscal, casarComCatalogo, type ItemNotaFiscal } from "@/lib/nota-fiscal";
 import { extrairContatosPlanilha, type ContatoImportado } from "@/lib/planilha";
@@ -3774,6 +3779,240 @@ function TabPerfil() {
       </button>
 
       <EditorTemplates />
+      <EditorCatalogo whatsappCadastrado={Boolean(perfil.whatsapp)} />
+    </div>
+  );
+}
+
+function EditorCatalogo({ whatsappCadastrado }: { whatsappCadastrado: boolean }) {
+  const [config, setConfig] = useState<CatalogoConfig | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [slug, setSlug] = useState("");
+  const [titulo, setTitulo] = useState("");
+  const [categorias, setCategorias] = useState<string[]>([]);
+  const [ativo, setAtivo] = useState(false);
+  const [statusSlug, setStatusSlug] = useState<
+    "idle" | "checando" | "livre" | "ocupado" | "invalido"
+  >("idle");
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState("");
+  const [sucesso, setSucesso] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+
+  useEffect(() => {
+    getCatalogoConfig()
+      .then((c) => {
+        setConfig(c);
+        if (c) {
+          setSlug(c.slug);
+          setTitulo(c.titulo);
+          setCategorias(c.categoriasSelecionadas);
+          setAtivo(c.ativo);
+        }
+      })
+      .finally(() => setCarregando(false));
+  }, []);
+
+  useEffect(() => {
+    const valor = slug.trim().toLowerCase();
+    if (!valor) {
+      setStatusSlug("idle");
+      return;
+    }
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(valor) || valor.length < 3 || valor.length > 40) {
+      setStatusSlug("invalido");
+      return;
+    }
+    setStatusSlug("checando");
+    const timer = setTimeout(async () => {
+      try {
+        const livre = await verificarSlugDisponivel(valor, config?.slug);
+        setStatusSlug(livre ? "livre" : "ocupado");
+      } catch {
+        setStatusSlug("idle");
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [slug, config?.slug]);
+
+  function alternarCategoria(valor: string) {
+    setCategorias((atual) =>
+      atual.includes(valor) ? atual.filter((c) => c !== valor) : [...atual, valor]
+    );
+  }
+
+  async function salvar() {
+    setErro("");
+    setSucesso(false);
+    const slugFinal = slug.trim().toLowerCase();
+
+    if (!slugFinal || statusSlug === "invalido") {
+      setErro("Escolha um link válido: letras minúsculas, números e hífen.");
+      return;
+    }
+    if (statusSlug === "ocupado") {
+      setErro("Esse link já está em uso. Escolha outro.");
+      return;
+    }
+    if (categorias.length === 0) {
+      setErro("Selecione ao menos uma categoria de produtos.");
+      return;
+    }
+    if (ativo && !whatsappCadastrado) {
+      setErro("Preencha seu WhatsApp em Dados cadastrais antes de ativar o catálogo.");
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      const salvo = await salvarCatalogoConfig({
+        slug: slugFinal,
+        titulo: titulo.trim(),
+        categoriasSelecionadas: categorias,
+        ativo,
+      });
+      setConfig(salvo);
+      setSlug(salvo.slug);
+      setSucesso(true);
+    } catch (e: any) {
+      setErro(
+        e?.code === "23505"
+          ? "Esse link já está em uso. Escolha outro."
+          : "Não foi possível salvar. Tente novamente."
+      );
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  function copiarLink() {
+    if (!config?.slug) return;
+    const link = `${window.location.origin}/catalogo/${config.slug}`;
+    navigator.clipboard.writeText(link);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  }
+
+  if (carregando) {
+    return (
+      <div className="panel-card" style={{ marginTop: 16 }}>
+        <div className="empty-state">Carregando catálogo...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="panel-card" style={{ marginTop: 16 }}>
+      <h2 className="panel-title">Catálogo público</h2>
+      <p style={{ color: "var(--muted)", fontSize: "0.82rem", marginBottom: 12 }}>
+        Gere um link com os produtos que você escolher, pra compartilhar direto no WhatsApp, sem
+        precisar de PDF.
+      </p>
+
+      {!whatsappCadastrado && (
+        <div className="login-error" style={{ marginBottom: 12 }}>
+          Preencha seu WhatsApp em "Dados cadastrais", acima, antes de ativar o catálogo.
+        </div>
+      )}
+
+      <div className="form-row">
+        <label>Link do catálogo</label>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ color: "var(--muted)", fontSize: "0.82rem", whiteSpace: "nowrap" }}>
+            /catalogo/
+          </span>
+          <input
+            className="text-input"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value.toLowerCase())}
+            placeholder="seu-nome"
+          />
+        </div>
+        {statusSlug === "checando" && (
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>Checando disponibilidade...</span>
+        )}
+        {statusSlug === "livre" && (
+          <span style={{ fontSize: 12, color: "var(--success)" }}>Link disponível.</span>
+        )}
+        {statusSlug === "ocupado" && (
+          <span style={{ fontSize: 12, color: "var(--danger)" }}>Esse link já está em uso.</span>
+        )}
+        {statusSlug === "invalido" && (
+          <span style={{ fontSize: 12, color: "var(--danger)" }}>
+            Use só letras minúsculas, números e hífen, entre 3 e 40 caracteres.
+          </span>
+        )}
+      </div>
+
+      <div className="form-row">
+        <label>Título (opcional)</label>
+        <input
+          className="text-input"
+          value={titulo}
+          onChange={(e) => setTitulo(e.target.value)}
+          placeholder="Ex: Catálogo de Perfumes"
+        />
+      </div>
+
+      <div className="form-row">
+        <label>Categorias exibidas</label>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+          {CATEGORIAS_CATALOGO.map((c) => (
+            <label
+              key={c.valor}
+              style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.86rem" }}
+            >
+              <input
+                type="checkbox"
+                checked={categorias.includes(c.valor)}
+                onChange={() => alternarCategoria(c.valor)}
+              />
+              {c.label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="form-row">
+        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={ativo}
+            onChange={(e) => setAtivo(e.target.checked)}
+            disabled={!whatsappCadastrado}
+          />
+          Catálogo ativo
+        </label>
+      </div>
+
+      {erro && (
+        <div className="login-error" style={{ marginBottom: 12 }}>
+          {erro}
+        </div>
+      )}
+      {sucesso && (
+        <div style={{ color: "var(--success)", fontSize: "0.85rem", marginBottom: 12 }}>
+          Catálogo salvo com sucesso.
+        </div>
+      )}
+
+      <button className="btn btn-primary btn-block" disabled={salvando} onClick={salvar}>
+        {salvando ? "Salvando..." : "Salvar catálogo"}
+      </button>
+
+      {config?.ativo && config?.slug && (
+        <div className="row-card-actions" style={{ marginTop: 12, gap: 8 }}>
+          <input
+            className="text-input"
+            value={`${typeof window !== "undefined" ? window.location.origin : ""}/catalogo/${config.slug}`}
+            readOnly
+            style={{ flex: 1 }}
+          />
+          <button className="btn btn-ghost btn-sm" onClick={copiarLink}>
+            {copiado ? "Copiado!" : "Copiar"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
