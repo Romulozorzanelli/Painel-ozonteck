@@ -43,6 +43,7 @@ export type ProdutoCatalogoPublico = {
   descricaoCurta: string;
   disponivel: boolean;
   categoria: string;
+  vendasTotais: number;
 };
 
 export type CatalogoPublico = {
@@ -1041,6 +1042,7 @@ export async function getCatalogoPublico(slug: string): Promise<CatalogoPublico 
       descricaoCurta: p.descricao_curta,
       disponivel: !!p.disponivel,
       categoria: p.categoria,
+      vendasTotais: Number(p.vendas_totais ?? 0),
     })),
   };
 }
