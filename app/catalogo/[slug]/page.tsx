@@ -95,9 +95,68 @@ function nomeItem(item: ItemCatalogo): string {
   return item.tipo === "variante" ? item.nome : item.produto.nome;
 }
 
+// Ranking de força de mercado (pesquisa externa sobre a referência de cada
+// perfume: vendas globais, listas de mais vendidos e prêmios de leitores).
+// Usado só como critério de ordenação por baixo dos panos, nunca aparece
+// pro cliente. Quanto menor o número, mais forte a referência.
+// Chave = id sem o sufixo de tamanho (mesma lógica de idBase).
+const RANKING_MERCADO_PERFUMARIA: Record<string, number> = {
+  // Feminino
+  "madame-vi": 1,
+  cinderela: 2,
+  "vida-bella": 3,
+  angelical: 4,
+  "alem-17-ml": 5,
+  "seduction-17-ml": 6,
+  "blue-sky-17-ml": 7,
+  grecia: 8,
+  "famma-17-ml": 9,
+  scandaloza: 10,
+  "vip-girl-vip": 11,
+  "vg-sexy": 12,
+  "303-for-woman-17-ml": 13,
+  "dg-red": 14,
+  "fantastica-bry-17-ml": 15,
+  aaliyah: 16,
+  // Masculino
+  "soul-17-ml": 1,
+  presidente: 2,
+  soberano: 3,
+  maximum: 4,
+  "oud-royale": 5,
+  "303-vip-men-17-ml": 6,
+  "gouf-blue-17-ml": 7,
+  "easy-line-17-ml": 8,
+  "venum-17-ml": 9,
+  capadocia: 10,
+  "gouf-tradicional-17-ml": 11,
+  "303-men-17-ml": 12,
+  "speed-black": 13,
+  fera: 14,
+  sentimento: 15,
+};
+
+function rankingMercado(item: ItemCatalogo): number {
+  return RANKING_MERCADO_PERFUMARIA[item.chave] ?? 999;
+}
+
+// Ordem geral (outras categorias): vendas reais do catálogo, depois nome.
 function ordenarPorPopularidade(itens: ItemCatalogo[]): ItemCatalogo[] {
   return [...itens].sort((a, b) => {
     if (b.vendasTotais !== a.vendasTotais) return b.vendasTotais - a.vendasTotais;
+    return nomeItem(a).localeCompare(nomeItem(b), "pt-BR");
+  });
+}
+
+// Perfumaria: vendas reais primeiro (isso é o que vira o badge "Mais
+// vendido"), e quando não há venda real ainda pra desempatar, usa o
+// ranking de mercado fixo em vez de ordem alfabética.
+function ordenarPerfumaria(itens: ItemCatalogo[]): ItemCatalogo[] {
+  return [...itens].sort((a, b) => {
+    if (b.vendasTotais !== a.vendasTotais) return b.vendasTotais - a.vendasTotais;
+    const rankA = rankingMercado(a);
+    const rankB = rankingMercado(b);
+    if (rankA !== rankB) return rankA - rankB;
     return nomeItem(a).localeCompare(nomeItem(b), "pt-BR");
   });
 }
@@ -209,7 +268,7 @@ export default function CatalogoPublicoPage() {
   );
 
   const itensPerfumaria = useMemo(
-    () => (catalogo && temPerfumaria ? ordenarPorPopularidade(agruparPerfumaria(catalogo.produtos)) : []),
+    () => (catalogo && temPerfumaria ? ordenarPerfumaria(agruparPerfumaria(catalogo.produtos)) : []),
     [catalogo, temPerfumaria]
   );
 
