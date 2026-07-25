@@ -402,8 +402,10 @@ function IconMenu({ className }: { className?: string }) {
 /* ---------------------------- Início (Dashboard) ---------------------------- */
 
 function TabInicio({
+  ativo,
   onCompletarCadastro,
 }: {
+  ativo: boolean;
   onCompletarCadastro: (clienteId: string) => void;
 }) {
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -418,26 +420,41 @@ function TabInicio({
   const [mensagensEditadas, setMensagensEditadas] = useState<Record<string, string>>({});
   const [dispensados, setDispensados] = useState<Set<string>>(new Set());
   const [processandoTarefa, setProcessandoTarefa] = useState(false);
+  const jaAtivouAntes = useRef(false);
 
-  useEffect(() => {
-    Promise.all([
+  function buscarDados() {
+    return Promise.all([
       getProdutos(),
       getClientes(),
       getVendas(),
       getFinanceiro(),
       getPerfil(),
       getTemplates(),
-    ])
-      .then(([p, c, v, l, perf, temp]) => {
-        setProdutos(p);
-        setClientes(c);
-        setVendas(v);
-        setLancamentos(l);
-        setPerfil(perf);
-        setTemplates(temp);
-      })
-      .finally(() => setCarregando(false));
+    ]).then(([p, c, v, l, perf, temp]) => {
+      setProdutos(p);
+      setClientes(c);
+      setVendas(v);
+      setLancamentos(l);
+      setPerfil(perf);
+      setTemplates(temp);
+    });
+  }
+
+  useEffect(() => {
+    buscarDados().finally(() => setCarregando(false));
   }, []);
+
+  // Ao voltar pra essa aba, revalida por baixo dos panos: mantém o que já
+  // está na tela e só atualiza se vier algo novo, sem mostrar "Carregando".
+  useEffect(() => {
+    if (!ativo) return;
+    if (!jaAtivouAntes.current) {
+      jaAtivouAntes.current = true;
+      return;
+    }
+    buscarDados();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativo]);
 
   if (carregando) {
     return <div className="empty-state">Carregando painel...</div>;
@@ -1142,7 +1159,13 @@ function TabCampanha() {
 
 /* ---------------------------- Estoque ---------------------------- */
 
-function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) => void }) {
+function TabEstoque({
+  ativo,
+  onVenderProduto,
+}: {
+  ativo: boolean;
+  onVenderProduto: (produtoId: string) => void;
+}) {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [ranking, setRanking] = useState<Record<string, number>>({});
   const [carregando, setCarregando] = useState(true);
@@ -1164,17 +1187,37 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
   );
   const [erroImportacao, setErroImportacao] = useState("");
   const [naoEncontrados, setNaoEncontrados] = useState<ItemNotaFiscal[]>([]);
+  const jaAtivouAntes = useRef(false);
 
-  useEffect(() => {
-    getProdutos()
-      .then(setProdutos)
-      .finally(() => setCarregando(false));
+  function buscarDados() {
+    getProdutos().then(setProdutos);
     // Ranking é só um "extra" visual — se falhar (ex: RPC indisponível),
     // não deve travar o carregamento do estoque.
     getRankingProdutos()
       .then(setRanking)
       .catch(() => {});
+  }
+
+  useEffect(() => {
+    getProdutos()
+      .then(setProdutos)
+      .finally(() => setCarregando(false));
+    getRankingProdutos()
+      .then(setRanking)
+      .catch(() => {});
   }, []);
+
+  // Ao voltar pra essa aba, revalida por baixo dos panos, sem mostrar
+  // "Carregando" de novo.
+  useEffect(() => {
+    if (!ativo) return;
+    if (!jaAtivouAntes.current) {
+      jaAtivouAntes.current = true;
+      return;
+    }
+    buscarDados();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativo]);
 
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -1824,10 +1867,12 @@ function TabEstoque({ onVenderProduto }: { onVenderProduto: (produtoId: string) 
 /* ---------------------------- Clientes ---------------------------- */
 
 function TabClientes({
+  ativo,
   onNovaVenda,
   clienteParaEditar,
   aoConsumirClienteParaEditar,
 }: {
+  ativo: boolean;
   onNovaVenda: (clienteId: string) => void;
   clienteParaEditar?: string | null;
   aoConsumirClienteParaEditar?: () => void;
@@ -1846,15 +1891,30 @@ function TabClientes({
   const [removendoCliente, setRemovendoCliente] = useState(false);
   const [salvandoCliente, setSalvandoCliente] = useState(false);
   const [avisoImportacao, setAvisoImportacao] = useState("");
+  const jaAtivouAntes = useRef(false);
+
+  function buscarDados() {
+    return Promise.all([getClientes(), getVendas()]).then(([c, v]) => {
+      setClientes(c);
+      setVendas(v);
+    });
+  }
 
   useEffect(() => {
-    Promise.all([getClientes(), getVendas()])
-      .then(([c, v]) => {
-        setClientes(c);
-        setVendas(v);
-      })
-      .finally(() => setCarregando(false));
+    buscarDados().finally(() => setCarregando(false));
   }, []);
+
+  // Ao voltar pra essa aba, revalida por baixo dos panos, sem mostrar
+  // "Carregando" de novo.
+  useEffect(() => {
+    if (!ativo) return;
+    if (!jaAtivouAntes.current) {
+      jaAtivouAntes.current = true;
+      return;
+    }
+    buscarDados();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativo]);
 
   useEffect(() => {
     if (clienteParaEditar && clientes.length > 0) {
@@ -2490,12 +2550,14 @@ function TabClientes({
 /* ---------------------------- Vendas ---------------------------- */
 
 function TabVendas({
+  ativo,
   clientePreSelecionado,
   aoConsumirPreSelecao,
   produtoPreSelecionado,
   aoConsumirProdutoPreSelecao,
   onCompletarWhatsapp,
 }: {
+  ativo: boolean;
   clientePreSelecionado?: string | null;
   aoConsumirPreSelecao?: () => void;
   produtoPreSelecionado?: string | null;
@@ -2520,6 +2582,7 @@ function TabVendas({
   const [salvando, setSalvando] = useState(false);
   const [processandoDetalheVenda, setProcessandoDetalheVenda] = useState(false);
   const [confirmandoRecebimento, setConfirmandoRecebimento] = useState(false);
+  const jaAtivouAntes = useRef(false);
 
   async function recarregar() {
     const [p, c, v] = await Promise.all([getProdutos(), getClientes(), getVendas()]);
@@ -2531,6 +2594,18 @@ function TabVendas({
   useEffect(() => {
     recarregar().finally(() => setCarregando(false));
   }, []);
+
+  // Ao voltar pra essa aba, revalida por baixo dos panos, sem mostrar
+  // "Carregando" de novo.
+  useEffect(() => {
+    if (!ativo) return;
+    if (!jaAtivouAntes.current) {
+      jaAtivouAntes.current = true;
+      return;
+    }
+    recarregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativo]);
 
   useEffect(() => {
     if (clientePreSelecionado) {
@@ -4457,6 +4532,7 @@ function PainelShell() {
         {abasVisitadas.has("inicio") && (
           <div style={{ display: aba === "inicio" ? "block" : "none" }}>
             <TabInicio
+              ativo={aba === "inicio"}
               onCompletarCadastro={(clienteId) => {
                 setClienteEditarId(clienteId);
                 irParaAba("clientes");
@@ -4467,6 +4543,7 @@ function PainelShell() {
         {abasVisitadas.has("estoque") && (
           <div style={{ display: aba === "estoque" ? "block" : "none" }}>
             <TabEstoque
+              ativo={aba === "estoque"}
               onVenderProduto={(produtoId) => {
                 setVendaProdutoId(produtoId);
                 irParaAba("vendas");
@@ -4477,6 +4554,7 @@ function PainelShell() {
         {abasVisitadas.has("clientes") && (
           <div style={{ display: aba === "clientes" ? "block" : "none" }}>
             <TabClientes
+              ativo={aba === "clientes"}
               onNovaVenda={(clienteId) => {
                 setVendaClienteId(clienteId);
                 irParaAba("vendas");
@@ -4489,6 +4567,7 @@ function PainelShell() {
         {abasVisitadas.has("vendas") && (
           <div style={{ display: aba === "vendas" ? "block" : "none" }}>
             <TabVendas
+              ativo={aba === "vendas"}
               clientePreSelecionado={vendaClienteId}
               aoConsumirPreSelecao={() => setVendaClienteId(null)}
               produtoPreSelecionado={vendaProdutoId}
