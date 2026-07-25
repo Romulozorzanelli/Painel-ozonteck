@@ -43,6 +43,7 @@ export type ProdutoCatalogoPublico = {
   descricaoCurta: string;
   disponivel: boolean;
   categoria: string;
+  sexo: "masculino" | "feminino" | null;
   vendasTotais: number;
 };
 
@@ -1042,6 +1043,7 @@ export async function getCatalogoPublico(slug: string): Promise<CatalogoPublico 
       descricaoCurta: p.descricao_curta,
       disponivel: !!p.disponivel,
       categoria: p.categoria,
+      sexo: p.sexo === "masculino" || p.sexo === "feminino" ? p.sexo : null,
       vendasTotais: Number(p.vendas_totais ?? 0),
     })),
   };
