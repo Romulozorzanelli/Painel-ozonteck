@@ -362,6 +362,25 @@ function IconCampanha({ className }: { className?: string }) {
   );
 }
 
+function IconCatalogo({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3.5" y="4" width="7" height="7" rx="1.4" />
+      <rect x="13.5" y="4" width="7" height="7" rx="1.4" />
+      <rect x="3.5" y="14" width="7" height="7" rx="1.4" />
+      <rect x="13.5" y="14" width="7" height="7" rx="1.4" />
+    </svg>
+  );
+}
+
 function IconMenu({ className }: { className?: string }) {
   return (
     <svg
@@ -3779,18 +3798,17 @@ function TabPerfil() {
       </button>
 
       <EditorTemplates />
-      <EditorCatalogo whatsappCadastrado={Boolean(perfil.whatsapp)} />
     </div>
   );
 }
 
-function EditorCatalogo({ whatsappCadastrado }: { whatsappCadastrado: boolean }) {
+function TabCatalogo() {
   const [config, setConfig] = useState<CatalogoConfig | null>(null);
+  const [whatsappCadastrado, setWhatsappCadastrado] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [slug, setSlug] = useState("");
   const [titulo, setTitulo] = useState("");
   const [categorias, setCategorias] = useState<string[]>([]);
-  const [ativo, setAtivo] = useState(false);
   const [statusSlug, setStatusSlug] = useState<
     "idle" | "checando" | "livre" | "ocupado" | "invalido"
   >("idle");
@@ -3800,14 +3818,14 @@ function EditorCatalogo({ whatsappCadastrado }: { whatsappCadastrado: boolean })
   const [copiado, setCopiado] = useState(false);
 
   useEffect(() => {
-    getCatalogoConfig()
-      .then((c) => {
+    Promise.all([getCatalogoConfig(), getPerfil()])
+      .then(([c, p]) => {
         setConfig(c);
+        setWhatsappCadastrado(Boolean(p?.whatsapp));
         if (c) {
           setSlug(c.slug);
           setTitulo(c.titulo);
           setCategorias(c.categoriasSelecionadas);
-          setAtivo(c.ativo);
         }
       })
       .finally(() => setCarregando(false));
@@ -3841,6 +3859,8 @@ function EditorCatalogo({ whatsappCadastrado }: { whatsappCadastrado: boolean })
     );
   }
 
+  // Salvar sempre publica (ativo: true) — é a única ação de escrita do
+  // formulário. Pausar é uma ação separada e explícita, abaixo do link.
   async function salvar() {
     setErro("");
     setSucesso(false);
@@ -3858,8 +3878,8 @@ function EditorCatalogo({ whatsappCadastrado }: { whatsappCadastrado: boolean })
       setErro("Selecione ao menos uma categoria de produtos.");
       return;
     }
-    if (ativo && !whatsappCadastrado) {
-      setErro("Preencha seu WhatsApp em Dados cadastrais antes de ativar o catálogo.");
+    if (!whatsappCadastrado) {
+      setErro("Preencha seu WhatsApp em Perfil antes de publicar o catálogo.");
       return;
     }
 
@@ -3869,7 +3889,7 @@ function EditorCatalogo({ whatsappCadastrado }: { whatsappCadastrado: boolean })
         slug: slugFinal,
         titulo: titulo.trim(),
         categoriasSelecionadas: categorias,
-        ativo,
+        ativo: true,
       });
       setConfig(salvo);
       setSlug(salvo.slug);
@@ -3885,6 +3905,27 @@ function EditorCatalogo({ whatsappCadastrado }: { whatsappCadastrado: boolean })
     }
   }
 
+  // Pausar/reativar agem sobre o que já está salvo, não sobre edições
+  // ainda não confirmadas no formulário acima.
+  async function alternarAtivo(novoAtivo: boolean) {
+    if (!config) return;
+    setErro("");
+    setSalvando(true);
+    try {
+      const salvo = await salvarCatalogoConfig({
+        slug: config.slug,
+        titulo: config.titulo,
+        categoriasSelecionadas: config.categoriasSelecionadas,
+        ativo: novoAtivo,
+      });
+      setConfig(salvo);
+    } catch {
+      setErro("Não foi possível atualizar o catálogo. Tente novamente.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   function copiarLink() {
     if (!config?.slug) return;
     const link = `${window.location.origin}/catalogo/${config.slug}`;
@@ -3894,125 +3935,167 @@ function EditorCatalogo({ whatsappCadastrado }: { whatsappCadastrado: boolean })
   }
 
   if (carregando) {
-    return (
-      <div className="panel-card" style={{ marginTop: 16 }}>
-        <div className="empty-state">Carregando catálogo...</div>
-      </div>
-    );
+    return <div className="empty-state">Carregando catálogo...</div>;
   }
 
+  const rotuloBotaoPrincipal = salvando
+    ? "Salvando..."
+    : config
+    ? "Salvar alterações"
+    : "Publicar catálogo";
+
   return (
-    <div className="panel-card" style={{ marginTop: 16 }}>
-      <h2 className="panel-title">Catálogo público</h2>
-      <p style={{ color: "var(--muted)", fontSize: "0.82rem", marginBottom: 12 }}>
-        Gere um link com os produtos que você escolher, pra compartilhar direto no WhatsApp, sem
-        precisar de PDF.
-      </p>
-
-      {!whatsappCadastrado && (
-        <div className="login-error" style={{ marginBottom: 12 }}>
-          Preencha seu WhatsApp em "Dados cadastrais", acima, antes de ativar o catálogo.
-        </div>
-      )}
-
-      <div className="form-row">
-        <label>Link do catálogo</label>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ color: "var(--muted)", fontSize: "0.82rem", whiteSpace: "nowrap" }}>
-            /catalogo/
-          </span>
-          <input
-            className="text-input"
-            value={slug}
-            onChange={(e) => setSlug(e.target.value.toLowerCase())}
-            placeholder="seu-nome"
-          />
-        </div>
-        {statusSlug === "checando" && (
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>Checando disponibilidade...</span>
-        )}
-        {statusSlug === "livre" && (
-          <span style={{ fontSize: 12, color: "var(--success)" }}>Link disponível.</span>
-        )}
-        {statusSlug === "ocupado" && (
-          <span style={{ fontSize: 12, color: "var(--danger)" }}>Esse link já está em uso.</span>
-        )}
-        {statusSlug === "invalido" && (
-          <span style={{ fontSize: 12, color: "var(--danger)" }}>
-            Use só letras minúsculas, números e hífen, entre 3 e 40 caracteres.
-          </span>
-        )}
+    <div>
+      <div className="page-header">
+        <h1>Catálogo</h1>
+        <p>Um link com os produtos que você escolher, pra compartilhar no WhatsApp sem PDF.</p>
       </div>
 
-      <div className="form-row">
-        <label>Título (opcional)</label>
-        <input
-          className="text-input"
-          value={titulo}
-          onChange={(e) => setTitulo(e.target.value)}
-          placeholder="Ex: Catálogo de Perfumes"
-        />
-      </div>
-
-      <div className="form-row">
-        <label>Categorias exibidas</label>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
-          {CATEGORIAS_CATALOGO.map((c) => (
-            <label
-              key={c.valor}
-              style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.86rem" }}
+      {config?.slug && (
+        <div className="panel-card" style={{ marginBottom: 16 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 10,
+            }}
+          >
+            <h2 className="panel-title" style={{ marginBottom: 0 }}>
+              Seu link
+            </h2>
+            <span className={"badge " + (config.ativo ? "badge-ok" : "badge-warn")}>
+              {config.ativo ? "Ativo" : "Pausado"}
+            </span>
+          </div>
+          <div className="row-card-actions" style={{ gap: 8 }}>
+            <input
+              className="text-input"
+              value={`${typeof window !== "undefined" ? window.location.origin : ""}/catalogo/${config.slug}`}
+              readOnly
+              style={{ flex: 1 }}
+            />
+            <button className="btn btn-ghost btn-sm" onClick={copiarLink}>
+              {copiado ? "Copiado!" : "Copiar"}
+            </button>
+          </div>
+          {config.ativo ? (
+            <button
+              className="btn btn-ghost btn-block"
+              style={{ marginTop: 10 }}
+              disabled={salvando}
+              onClick={() => alternarAtivo(false)}
             >
-              <input
-                type="checkbox"
-                checked={categorias.includes(c.valor)}
-                onChange={() => alternarCategoria(c.valor)}
-              />
-              {c.label}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div className="form-row">
-        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={ativo}
-            onChange={(e) => setAtivo(e.target.checked)}
-            disabled={!whatsappCadastrado}
-          />
-          Catálogo ativo
-        </label>
-      </div>
-
-      {erro && (
-        <div className="login-error" style={{ marginBottom: 12 }}>
-          {erro}
-        </div>
-      )}
-      {sucesso && (
-        <div style={{ color: "var(--success)", fontSize: "0.85rem", marginBottom: 12 }}>
-          Catálogo salvo com sucesso.
+              Pausar catálogo
+            </button>
+          ) : (
+            <p style={{ color: "var(--muted)", fontSize: "0.8rem", marginTop: 10 }}>
+              Pausado: ninguém consegue acessar esse link agora. Toque em "{rotuloBotaoPrincipal}"
+              abaixo, ou{" "}
+              <button
+                className="sheet-whatsapp-link"
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  fontSize: "inherit",
+                }}
+                disabled={salvando}
+                onClick={() => alternarAtivo(true)}
+              >
+                reative sem alterar nada
+              </button>
+              .
+            </p>
+          )}
         </div>
       )}
 
-      <button className="btn btn-primary btn-block" disabled={salvando} onClick={salvar}>
-        {salvando ? "Salvando..." : "Salvar catálogo"}
-      </button>
+      <div className="panel-card">
+        <h2 className="panel-title">{config ? "Editar catálogo" : "Criar catálogo"}</h2>
 
-      {config?.ativo && config?.slug && (
-        <div className="row-card-actions" style={{ marginTop: 12, gap: 8 }}>
+        {!whatsappCadastrado && (
+          <div className="login-error" style={{ marginBottom: 12 }}>
+            Preencha seu WhatsApp em Perfil antes de publicar o catálogo.
+          </div>
+        )}
+
+        <div className="form-row">
+          <label>Link do catálogo</label>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ color: "var(--muted)", fontSize: "0.82rem", whiteSpace: "nowrap" }}>
+              /catalogo/
+            </span>
+            <input
+              className="text-input"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value.toLowerCase())}
+              placeholder="seu-nome"
+            />
+          </div>
+          {statusSlug === "checando" && (
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+              Checando disponibilidade...
+            </span>
+          )}
+          {statusSlug === "livre" && (
+            <span style={{ fontSize: 12, color: "var(--success)" }}>Link disponível.</span>
+          )}
+          {statusSlug === "ocupado" && (
+            <span style={{ fontSize: 12, color: "var(--danger)" }}>Esse link já está em uso.</span>
+          )}
+          {statusSlug === "invalido" && (
+            <span style={{ fontSize: 12, color: "var(--danger)" }}>
+              Use só letras minúsculas, números e hífen, entre 3 e 40 caracteres.
+            </span>
+          )}
+        </div>
+
+        <div className="form-row">
+          <label>Título (opcional)</label>
           <input
             className="text-input"
-            value={`${typeof window !== "undefined" ? window.location.origin : ""}/catalogo/${config.slug}`}
-            readOnly
-            style={{ flex: 1 }}
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            placeholder="Ex: Catálogo de Perfumes"
           />
-          <button className="btn btn-ghost btn-sm" onClick={copiarLink}>
-            {copiado ? "Copiado!" : "Copiar"}
-          </button>
         </div>
-      )}
+
+        <div className="form-row">
+          <label>Categorias exibidas</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+            {CATEGORIAS_CATALOGO.map((c) => (
+              <label
+                key={c.valor}
+                style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.86rem" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={categorias.includes(c.valor)}
+                  onChange={() => alternarCategoria(c.valor)}
+                />
+                {c.label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {erro && (
+          <div className="login-error" style={{ marginBottom: 12 }}>
+            {erro}
+          </div>
+        )}
+        {sucesso && (
+          <div style={{ color: "var(--success)", fontSize: "0.85rem", marginBottom: 12 }}>
+            Catálogo salvo com sucesso.
+          </div>
+        )}
+
+        <button className="btn btn-primary btn-block" disabled={salvando} onClick={salvar}>
+          {rotuloBotaoPrincipal}
+        </button>
+      </div>
     </div>
   );
 }
@@ -4264,6 +4347,7 @@ const TABS_BARRA = [
 const TABS_MENU = [
   { id: "financeiro", label: "Financeiro", Icon: IconFinanceiro },
   { id: "campanha", label: "Campanha", Icon: IconCampanha },
+  { id: "catalogo", label: "Catálogo", Icon: IconCatalogo },
   { id: "perfil", label: "Perfil", Icon: IconPerfil },
 ] as const;
 
@@ -4399,6 +4483,7 @@ function PainelShell() {
         )}
         {aba === "financeiro" && <TabFinanceiro />}
         {aba === "campanha" && <TabCampanha />}
+        {aba === "catalogo" && <TabCatalogo />}
         {aba === "perfil" && <TabPerfil />}
       </main>
       <nav className="bottom-nav">
