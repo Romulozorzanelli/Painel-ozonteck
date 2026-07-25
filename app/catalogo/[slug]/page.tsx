@@ -25,6 +25,67 @@ function linkWhatsApp(telefone: string, mensagem: string): string {
   return `https://wa.me/${comPais}?text=${encodeURIComponent(mensagem)}`;
 }
 
+// Tira o "17 ML" / "100 ML" do final do nome, pra usar como título comum
+// quando os dois tamanhos do mesmo perfume viram um card só.
+function nomeSemTamanho(nome: string): string {
+  return nome.replace(/\s+(17|100)\s*ml\.?$/i, "").trim();
+}
+
+// Os dois tamanhos de um mesmo perfume compartilham a base do id
+// (ex: "soberano-100-ml" e "soberano" | "madame-vi-17-ml" e "madame-vi-100-ml").
+function idBase(id: string): string {
+  return id.replace(/-(17|100)-ml$/i, "");
+}
+
+type ItemCatalogo =
+  | {
+      tipo: "variante";
+      chave: string;
+      nome: string;
+      tamanhos: { tamanho: "17ml" | "100ml"; produto: ProdutoCatalogoPublico }[];
+    }
+  | { tipo: "simples"; chave: string; produto: ProdutoCatalogoPublico };
+
+// Junta perfumaria 17ml e 100ml do mesmo perfume num card só (com seletor de
+// tamanho), e deixa como card único quem não tem par nos dois tamanhos.
+function agruparPerfumaria(produtos: ProdutoCatalogoPublico[]): ItemCatalogo[] {
+  const p17 = produtos.filter((p) => p.categoria === "perfumaria_17ml");
+  const p100 = produtos.filter((p) => p.categoria === "perfumaria_100ml");
+  const usados17 = new Set<string>();
+  const itens: ItemCatalogo[] = [];
+
+  for (const produto100 of p100) {
+    const base = idBase(produto100.id);
+    const par17 = p17.find((p) => idBase(p.id) === base);
+    if (par17) {
+      usados17.add(par17.id);
+      itens.push({
+        tipo: "variante",
+        chave: base,
+        nome: nomeSemTamanho(produto100.nome),
+        tamanhos: [
+          { tamanho: "17ml", produto: par17 },
+          { tamanho: "100ml", produto: produto100 },
+        ],
+      });
+    } else {
+      itens.push({ tipo: "simples", chave: produto100.id, produto: produto100 });
+    }
+  }
+
+  for (const produto17 of p17) {
+    if (!usados17.has(produto17.id)) {
+      itens.push({ tipo: "simples", chave: produto17.id, produto: produto17 });
+    }
+  }
+
+  return itens.sort((a, b) => {
+    const nomeA = a.tipo === "variante" ? a.nome : a.produto.nome;
+    const nomeB = b.tipo === "variante" ? b.nome : b.produto.nome;
+    return nomeA.localeCompare(nomeB, "pt-BR");
+  });
+}
+
 export default function CatalogoPublicoPage() {
   const params = useParams<{ slug: string }>();
   const [catalogo, setCatalogo] = useState<CatalogoPublico | null>(null);
@@ -66,11 +127,17 @@ export default function CatalogoPublicoPage() {
     );
   }
 
-  const porCategoria = new Map<string, ProdutoCatalogoPublico[]>();
+  const temPerfumaria = catalogo.produtos.some(
+    (p) => p.categoria === "perfumaria_17ml" || p.categoria === "perfumaria_100ml"
+  );
+  const itensPerfumaria = temPerfumaria ? agruparPerfumaria(catalogo.produtos) : [];
+
+  const porOutraCategoria = new Map<string, ProdutoCatalogoPublico[]>();
   for (const p of catalogo.produtos) {
-    const lista = porCategoria.get(p.categoria) ?? [];
+    if (p.categoria === "perfumaria_17ml" || p.categoria === "perfumaria_100ml") continue;
+    const lista = porOutraCategoria.get(p.categoria) ?? [];
     lista.push(p);
-    porCategoria.set(p.categoria, lista);
+    porOutraCategoria.set(p.categoria, lista);
   }
 
   const tituloExibido = catalogo.titulo || "Catálogo";
@@ -100,30 +167,27 @@ export default function CatalogoPublicoPage() {
           </div>
         )}
 
-        {Array.from(porCategoria.entries()).map(([categoria, produtos]) => (
+        {temPerfumaria && (
+          <div style={{ marginBottom: 22 }}>
+            <h2 className="panel-title">Perfumaria</h2>
+            <div className="catalogo-grid">
+              {itensPerfumaria.map((item) => (
+                <CardCatalogo key={item.chave} item={item} onAbrir={setProdutoAberto} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {Array.from(porOutraCategoria.entries()).map(([categoria, produtos]) => (
           <div key={categoria} style={{ marginBottom: 22 }}>
             <h2 className="panel-title">{LABEL_CATEGORIA[categoria] ?? categoria}</h2>
-            <div className="stock-grid">
+            <div className="catalogo-grid">
               {produtos.map((p) => (
-                <div key={p.id} className="stock-card" onClick={() => setProdutoAberto(p)}>
-                  <div className="stock-card-media">
-                    {p.imagem ? (
-                      <img src={p.imagem} alt={p.nome} />
-                    ) : (
-                      <span className="stock-card-placeholder">{p.nome.slice(0, 1)}</span>
-                    )}
-                    {!p.disponivel && (
-                      <span className="badge badge-low stock-card-badge">Indisponível</span>
-                    )}
-                  </div>
-                  <div className="stock-card-body">
-                    <span className="stock-card-tag">{p.familiaOlfativa}</span>
-                    <span className="stock-card-title">{p.nome}</span>
-                    <div className="stock-card-footer">
-                      <span className="stock-card-price">{currency(p.preco)}</span>
-                    </div>
-                  </div>
-                </div>
+                <CardCatalogo
+                  key={p.id}
+                  item={{ tipo: "simples", chave: p.id, produto: p }}
+                  onAbrir={setProdutoAberto}
+                />
               ))}
             </div>
           </div>
@@ -180,4 +244,88 @@ export default function CatalogoPublicoPage() {
       )}
     </div>
   );
+}
+
+function CardCatalogo({
+  item,
+  onAbrir,
+}: {
+  item: ItemCatalogo;
+  onAbrir: (p: ProdutoCatalogoPublico) => void;
+}) {
+  const padraoInicial = item.tipo === "variante" ? ultimoTamanhoDisponivel(item) : null;
+  const [tamanhoSelecionado, setTamanhoSelecionado] = useState<"17ml" | "100ml" | null>(
+    padraoInicial
+  );
+
+  if (item.tipo === "simples") {
+    const p = item.produto;
+    return (
+      <div className="catalogo-card" onClick={() => onAbrir(p)}>
+        <div className="catalogo-card-media">
+          {p.imagem ? (
+            <img src={p.imagem} alt={p.nome} />
+          ) : (
+            <span className="catalogo-card-placeholder">{p.nome.slice(0, 1)}</span>
+          )}
+          {!p.disponivel && (
+            <span className="badge badge-low catalogo-card-badge">Indisponível</span>
+          )}
+        </div>
+        <div className="catalogo-card-body">
+          <span className="catalogo-card-tag">{p.familiaOlfativa}</span>
+          <span className="catalogo-card-title">{p.nome}</span>
+          <span className="catalogo-card-price">{currency(p.preco)}</span>
+        </div>
+      </div>
+    );
+  }
+
+  const atual =
+    item.tamanhos.find((t) => t.tamanho === tamanhoSelecionado)?.produto ??
+    item.tamanhos[0].produto;
+
+  return (
+    <div className="catalogo-card">
+      <div className="catalogo-card-media" onClick={() => onAbrir(atual)}>
+        {atual.imagem ? (
+          <img src={atual.imagem} alt={atual.nome} />
+        ) : (
+          <span className="catalogo-card-placeholder">{item.nome.slice(0, 1)}</span>
+        )}
+        {!atual.disponivel && (
+          <span className="badge badge-low catalogo-card-badge">Indisponível</span>
+        )}
+      </div>
+      <div className="catalogo-card-body">
+        <span className="catalogo-card-tag">{atual.familiaOlfativa}</span>
+        <span className="catalogo-card-title" onClick={() => onAbrir(atual)}>
+          {item.nome}
+        </span>
+        <span className="catalogo-card-price">{currency(atual.preco)}</span>
+        <div className="catalogo-size-toggle">
+          {item.tamanhos.map((t) => (
+            <button
+              key={t.tamanho}
+              className={"catalogo-size-pill " + (tamanhoSelecionado === t.tamanho ? "active" : "")}
+              onClick={(e) => {
+                e.stopPropagation();
+                setTamanhoSelecionado(t.tamanho);
+              }}
+            >
+              {t.tamanho}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Padrão: 100ml selecionado quando existe (maior ticket); cai pro 17ml se
+// por algum motivo o 100ml não estiver na lista.
+function ultimoTamanhoDisponivel(
+  item: Extract<ItemCatalogo, { tipo: "variante" }>
+): "17ml" | "100ml" {
+  return item.tamanhos.some((t) => t.tamanho === "100ml") ? "100ml" : "17ml";
 }
