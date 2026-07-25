@@ -1196,3 +1196,31 @@ button {
 .catalogo-tema-claro .login-subtitle {
   color: var(--cat-muted);
 }
+.catalogo-filtros {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+  scrollbar-width: none;
+}
+.catalogo-filtros::-webkit-scrollbar {
+  display: none;
+}
+.catalogo-filtro-chip {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--cat-border, var(--border));
+  background: #ffffff;
+  color: var(--cat-muted, var(--muted));
+  cursor: pointer;
+}
+.catalogo-filtro-chip.active {
+  background: var(--cat-accent, var(--gold));
+  border-color: var(--cat-accent, var(--gold));
+  color: #ffffff;
+}
