@@ -10,6 +10,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
+  // Catálogo público: vitrine sem login, cada revendedor compartilha o
+  // próprio link (/catalogo/[slug]).
+  if (path.startsWith("/catalogo")) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
