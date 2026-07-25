@@ -106,6 +106,10 @@ function tamanhoPadrao(item: Extract<ItemCatalogo, { tipo: "variante" }>): "17ml
   return item.tamanhos.some((t) => t.tamanho === "100ml") ? "100ml" : "17ml";
 }
 
+function sexoDoItem(item: ItemCatalogo): "masculino" | "feminino" | null {
+  return item.tipo === "variante" ? item.tamanhos[0].produto.sexo : item.produto.sexo;
+}
+
 type ItemCarrinho = {
   chave: string;
   nome: string;
@@ -162,6 +166,8 @@ export default function CatalogoPublicoPage() {
   const [naoEncontrado, setNaoEncontrado] = useState(false);
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);
+  const [filtroCategoria, setFiltroCategoria] = useState<string>("todas");
+  const [filtroSexo, setFiltroSexo] = useState<"todos" | "feminino" | "masculino">("todos");
 
   useEffect(() => {
     getCatalogoPublico(params.slug)
@@ -224,6 +230,24 @@ export default function CatalogoPublicoPage() {
         .map((i) => i.chave)
     );
   }, [itensPerfumaria, porOutraCategoria]);
+
+  // Categorias disponíveis pros chips de filtro, na ordem em que aparecem.
+  const categoriasDisponiveis = useMemo(() => {
+    const lista: { chave: string; label: string }[] = [];
+    if (temPerfumaria) lista.push({ chave: "perfumaria", label: "Perfumaria" });
+    for (const chave of porOutraCategoria.keys()) {
+      lista.push({ chave, label: LABEL_CATEGORIA[chave] ?? chave });
+    }
+    return lista;
+  }, [temPerfumaria, porOutraCategoria]);
+
+  const mostraPerfumaria =
+    temPerfumaria && (filtroCategoria === "todas" || filtroCategoria === "perfumaria");
+
+  const itensPerfumariaFiltrados = useMemo(() => {
+    if (filtroSexo === "todos") return itensPerfumaria;
+    return itensPerfumaria.filter((i) => sexoDoItem(i) === filtroSexo);
+  }, [itensPerfumaria, filtroSexo]);
 
   // Tela de detalhe fica representada na própria URL (?p=chave&t=tamanho),
   // exatamente como o app principal faz com "?aba=". Isso faz o botão
@@ -359,11 +383,45 @@ export default function CatalogoPublicoPage() {
               </div>
             )}
 
-            {temPerfumaria && (
-              <div style={{ marginBottom: 26 }}>
+            {categoriasDisponiveis.length > 1 && (
+              <div className="catalogo-filtros">
+                <button
+                  className={"catalogo-filtro-chip " + (filtroCategoria === "todas" ? "active" : "")}
+                  onClick={() => setFiltroCategoria("todas")}
+                >
+                  Todos
+                </button>
+                {categoriasDisponiveis.map((c) => (
+                  <button
+                    key={c.chave}
+                    className={"catalogo-filtro-chip " + (filtroCategoria === c.chave ? "active" : "")}
+                    onClick={() => setFiltroCategoria(c.chave)}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {mostraPerfumaria && (
+              <div className="catalogo-filtros">
+                {(["todos", "feminino", "masculino"] as const).map((s) => (
+                  <button
+                    key={s}
+                    className={"catalogo-filtro-chip " + (filtroSexo === s ? "active" : "")}
+                    onClick={() => setFiltroSexo(s)}
+                  >
+                    {s === "todos" ? "Todos" : s === "feminino" ? "Feminino" : "Masculino"}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {mostraPerfumaria && (
+              <div style={{ marginBottom: 26, marginTop: 6 }}>
                 <h2 className="panel-title">Perfumaria</h2>
                 <div className="catalogo-grid">
-                  {itensPerfumaria.map((item) => (
+                  {itensPerfumariaFiltrados.map((item) => (
                     <CardCatalogo
                       key={item.chave}
                       item={item}
@@ -375,21 +433,23 @@ export default function CatalogoPublicoPage() {
               </div>
             )}
 
-            {Array.from(porOutraCategoria.entries()).map(([categoria, itens]) => (
-              <div key={categoria} style={{ marginBottom: 26 }}>
-                <h2 className="panel-title">{LABEL_CATEGORIA[categoria] ?? categoria}</h2>
-                <div className="catalogo-grid">
-                  {itens.map((item) => (
-                    <CardCatalogo
-                      key={item.chave}
-                      item={item}
-                      maisVendido={maisVendidosChaves.has(item.chave)}
-                      onAbrir={abrirDetalhe}
-                    />
-                  ))}
+            {Array.from(porOutraCategoria.entries())
+              .filter(([categoria]) => filtroCategoria === "todas" || filtroCategoria === categoria)
+              .map(([categoria, itens]) => (
+                <div key={categoria} style={{ marginBottom: 26 }}>
+                  <h2 className="panel-title">{LABEL_CATEGORIA[categoria] ?? categoria}</h2>
+                  <div className="catalogo-grid">
+                    {itens.map((item) => (
+                      <CardCatalogo
+                        key={item.chave}
+                        item={item}
+                        maisVendido={maisVendidosChaves.has(item.chave)}
+                        onAbrir={abrirDetalhe}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </>
         )}
       </div>
