@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   getCatalogoPublico,
@@ -42,12 +42,14 @@ type ItemCatalogo =
       tipo: "variante";
       chave: string;
       nome: string;
+      vendasTotais: number;
       tamanhos: { tamanho: "17ml" | "100ml"; produto: ProdutoCatalogoPublico }[];
     }
-  | { tipo: "simples"; chave: string; produto: ProdutoCatalogoPublico };
+  | { tipo: "simples"; chave: string; vendasTotais: number; produto: ProdutoCatalogoPublico };
 
 // Junta perfumaria 17ml e 100ml do mesmo perfume num card só (com seletor de
 // tamanho), e deixa como card único quem não tem par nos dois tamanhos.
+// A popularidade do card combinado soma a venda dos dois tamanhos.
 function agruparPerfumaria(produtos: ProdutoCatalogoPublico[]): ItemCatalogo[] {
   const p17 = produtos.filter((p) => p.categoria === "perfumaria_17ml");
   const p100 = produtos.filter((p) => p.categoria === "perfumaria_100ml");
@@ -63,27 +65,61 @@ function agruparPerfumaria(produtos: ProdutoCatalogoPublico[]): ItemCatalogo[] {
         tipo: "variante",
         chave: base,
         nome: nomeSemTamanho(produto100.nome),
+        vendasTotais: produto100.vendasTotais + par17.vendasTotais,
         tamanhos: [
           { tamanho: "17ml", produto: par17 },
           { tamanho: "100ml", produto: produto100 },
         ],
       });
     } else {
-      itens.push({ tipo: "simples", chave: produto100.id, produto: produto100 });
+      itens.push({
+        tipo: "simples",
+        chave: produto100.id,
+        vendasTotais: produto100.vendasTotais,
+        produto: produto100,
+      });
     }
   }
 
   for (const produto17 of p17) {
     if (!usados17.has(produto17.id)) {
-      itens.push({ tipo: "simples", chave: produto17.id, produto: produto17 });
+      itens.push({
+        tipo: "simples",
+        chave: produto17.id,
+        vendasTotais: produto17.vendasTotais,
+        produto: produto17,
+      });
     }
   }
 
-  return itens.sort((a, b) => {
-    const nomeA = a.tipo === "variante" ? a.nome : a.produto.nome;
-    const nomeB = b.tipo === "variante" ? b.nome : b.produto.nome;
-    return nomeA.localeCompare(nomeB, "pt-BR");
+  return itens;
+}
+
+function nomeItem(item: ItemCatalogo): string {
+  return item.tipo === "variante" ? item.nome : item.produto.nome;
+}
+
+// Ordena por popularidade (mais vendido primeiro), empate por nome.
+function ordenarPorPopularidade(itens: ItemCatalogo[]): ItemCatalogo[] {
+  return [...itens].sort((a, b) => {
+    if (b.vendasTotais !== a.vendasTotais) return b.vendasTotais - a.vendasTotais;
+    return nomeItem(a).localeCompare(nomeItem(b), "pt-BR");
   });
+}
+
+type ItemCarrinho = {
+  chave: string;
+  nome: string;
+  preco: number;
+  quantidade: number;
+  imagem: string | null;
+};
+
+function montarMensagemPedido(itens: ItemCarrinho[], total: number): string {
+  const linhas = itens
+    .map((i) => `${i.quantidade}x ${i.nome} - ${currency(i.preco * i.quantidade)}`)
+    .join("\n");
+  return `Oi! Fiz uma seleção no seu catálogo e queria fechar esse pedido:\n\n${linhas}\n\nTotal: ${currency(total)}`;
 }
 
 export default function CatalogoPublicoPage() {
@@ -91,7 +127,11 @@ export default function CatalogoPublicoPage() {
   const [catalogo, setCatalogo] = useState<CatalogoPublico | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [naoEncontrado, setNaoEncontrado] = useState(false);
-  const [produtoAberto, setProdutoAberto] = useState<ProdutoCatalogoPublico | null>(null);
+  const [sheet, setSheet] = useState<{ item: ItemCatalogo; tamanho: "17ml" | "100ml" | null } | null>(
+    null
+  );
+  const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
+  const [carrinhoAberto, setCarrinhoAberto] = useState(false);
 
   useEffect(() => {
     getCatalogoPublico(params.slug)
@@ -105,6 +145,88 @@ export default function CatalogoPublicoPage() {
       .catch(() => setNaoEncontrado(true))
       .finally(() => setCarregando(false));
   }, [params.slug]);
+
+  const temPerfumaria = useMemo(
+    () =>
+      !!catalogo &&
+      catalogo.produtos.some(
+        (p) => p.categoria === "perfumaria_17ml" || p.categoria === "perfumaria_100ml"
+      ),
+    [catalogo]
+  );
+
+  const itensPerfumaria = useMemo(
+    () => (catalogo && temPerfumaria ? ordenarPorPopularidade(agruparPerfumaria(catalogo.produtos)) : []),
+    [catalogo, temPerfumaria]
+  );
+
+  const porOutraCategoria = useMemo(() => {
+    const mapa = new Map<string, ItemCatalogo[]>();
+    if (!catalogo) return mapa;
+    for (const p of catalogo.produtos) {
+      if (p.categoria === "perfumaria_17ml" || p.categoria === "perfumaria_100ml") continue;
+      const lista = mapa.get(p.categoria) ?? [];
+      lista.push({ tipo: "simples", chave: p.id, vendasTotais: p.vendasTotais, produto: p });
+      mapa.set(p.categoria, lista);
+    }
+    for (const [categoria, lista] of mapa) {
+      mapa.set(categoria, ordenarPorPopularidade(lista));
+    }
+    return mapa;
+  }, [catalogo]);
+
+  // Top 3 mais vendidos do catálogo inteiro (todas as categorias juntas),
+  // só entra quem já vendeu pelo menos 1 unidade.
+  const maisVendidosChaves = useMemo(() => {
+    const todos = [...itensPerfumaria, ...Array.from(porOutraCategoria.values()).flat()];
+    return new Set(
+      todos
+        .filter((i) => i.vendasTotais > 0)
+        .sort((a, b) => b.vendasTotais - a.vendasTotais)
+        .slice(0, 3)
+        .map((i) => i.chave)
+    );
+  }, [itensPerfumaria, porOutraCategoria]);
+
+  function abrirSheet(item: ItemCatalogo, tamanhoAtual: "17ml" | "100ml" | null) {
+    setSheet({ item, tamanho: tamanhoAtual });
+  }
+
+  function adicionarAoCarrinho(produto: ProdutoCatalogoPublico, nomeExibido: string) {
+    setCarrinho((atual) => {
+      const idx = atual.findIndex((i) => i.chave === produto.id);
+      if (idx >= 0) {
+        const copia = [...atual];
+        copia[idx] = { ...copia[idx], quantidade: copia[idx].quantidade + 1 };
+        return copia;
+      }
+      return [
+        ...atual,
+        {
+          chave: produto.id,
+          nome: nomeExibido,
+          preco: produto.preco,
+          quantidade: 1,
+          imagem: produto.imagem,
+        },
+      ];
+    });
+    setSheet(null);
+  }
+
+  function alterarQuantidade(chave: string, novaQtd: number) {
+    setCarrinho((atual) => {
+      if (novaQtd <= 0) return atual.filter((i) => i.chave !== chave);
+      return atual.map((i) => (i.chave === chave ? { ...i, quantidade: novaQtd } : i));
+    });
+  }
+
+  function removerDoCarrinho(chave: string) {
+    setCarrinho((atual) => atual.filter((i) => i.chave !== chave));
+  }
+
+  const totalCarrinho = carrinho.reduce((s, i) => s + i.preco * i.quantidade, 0);
+  const qtdCarrinho = carrinho.reduce((s, i) => s + i.quantidade, 0);
 
   if (carregando) {
     return (
@@ -127,23 +249,18 @@ export default function CatalogoPublicoPage() {
     );
   }
 
-  const temPerfumaria = catalogo.produtos.some(
-    (p) => p.categoria === "perfumaria_17ml" || p.categoria === "perfumaria_100ml"
-  );
-  const itensPerfumaria = temPerfumaria ? agruparPerfumaria(catalogo.produtos) : [];
-
-  const porOutraCategoria = new Map<string, ProdutoCatalogoPublico[]>();
-  for (const p of catalogo.produtos) {
-    if (p.categoria === "perfumaria_17ml" || p.categoria === "perfumaria_100ml") continue;
-    const lista = porOutraCategoria.get(p.categoria) ?? [];
-    lista.push(p);
-    porOutraCategoria.set(p.categoria, lista);
-  }
-
   const tituloExibido = catalogo.titulo || "Catálogo";
   const subtitulo = catalogo.nomeRevendedor
     ? `Produtos selecionados por ${catalogo.nomeRevendedor}`
     : "Toque num produto pra ver detalhes";
+
+  const produtoDoSheet =
+    sheet?.item.tipo === "variante"
+      ? sheet.item.tamanhos.find((t) => t.tamanho === sheet.tamanho)?.produto ??
+        sheet.item.tamanhos[0].produto
+      : sheet?.item.produto ?? null;
+
+  const nomeDoSheet = sheet ? nomeItem(sheet.item) : "";
 
   return (
     <div className="app-shell">
@@ -154,7 +271,7 @@ export default function CatalogoPublicoPage() {
         </div>
       </div>
 
-      <div className="main">
+      <div className="main" style={{ paddingBottom: carrinho.length > 0 ? 84 : undefined }}>
         <div className="page-header">
           <h1>{tituloExibido}</h1>
           <p>{subtitulo}</p>
@@ -172,21 +289,27 @@ export default function CatalogoPublicoPage() {
             <h2 className="panel-title">Perfumaria</h2>
             <div className="catalogo-grid">
               {itensPerfumaria.map((item) => (
-                <CardCatalogo key={item.chave} item={item} onAbrir={setProdutoAberto} />
+                <CardCatalogo
+                  key={item.chave}
+                  item={item}
+                  maisVendido={maisVendidosChaves.has(item.chave)}
+                  onAbrir={abrirSheet}
+                />
               ))}
             </div>
           </div>
         )}
 
-        {Array.from(porOutraCategoria.entries()).map(([categoria, produtos]) => (
+        {Array.from(porOutraCategoria.entries()).map(([categoria, itens]) => (
           <div key={categoria} style={{ marginBottom: 22 }}>
             <h2 className="panel-title">{LABEL_CATEGORIA[categoria] ?? categoria}</h2>
             <div className="catalogo-grid">
-              {produtos.map((p) => (
+              {itens.map((item) => (
                 <CardCatalogo
-                  key={p.id}
-                  item={{ tipo: "simples", chave: p.id, produto: p }}
-                  onAbrir={setProdutoAberto}
+                  key={item.chave}
+                  item={item}
+                  maisVendido={maisVendidosChaves.has(item.chave)}
+                  onAbrir={abrirSheet}
                 />
               ))}
             </div>
@@ -194,50 +317,154 @@ export default function CatalogoPublicoPage() {
         ))}
       </div>
 
-      {produtoAberto && (
-        <div className="sheet-overlay" onClick={() => setProdutoAberto(null)}>
+      {carrinho.length > 0 && !carrinhoAberto && (
+        <button className="catalogo-carrinho-bar" onClick={() => setCarrinhoAberto(true)}>
+          <span>
+            {qtdCarrinho} {qtdCarrinho === 1 ? "item" : "itens"} no carrinho
+          </span>
+          <span>{currency(totalCarrinho)}</span>
+        </button>
+      )}
+
+      {sheet && produtoDoSheet && (
+        <div className="sheet-overlay" onClick={() => setSheet(null)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-handle" />
             <div className="sheet-header">
-              <h2>{produtoAberto.nome}</h2>
-              <button className="sheet-close" onClick={() => setProdutoAberto(null)}>
+              <h2>{nomeDoSheet}</h2>
+              <button className="sheet-close" onClick={() => setSheet(null)}>
                 ✕
               </button>
             </div>
 
-            {produtoAberto.imagem && (
+            {produtoDoSheet.imagem && (
               <div className="stock-detail-media" style={{ marginBottom: 12 }}>
-                <img src={produtoAberto.imagem} alt={produtoAberto.nome} />
+                <img src={produtoDoSheet.imagem} alt={produtoDoSheet.nome} />
               </div>
             )}
 
-            <p className="sheet-descricao">
-              {produtoAberto.descricaoCurta || produtoAberto.familiaOlfativa}
+            {sheet.item.tipo === "variante" && (
+              <div className="catalogo-size-toggle" style={{ marginBottom: 12 }}>
+                {sheet.item.tamanhos.map((t) => (
+                  <button
+                    key={t.tamanho}
+                    className={"catalogo-size-pill " + (sheet.tamanho === t.tamanho ? "active" : "")}
+                    style={{ fontSize: "0.78rem", padding: "6px 0" }}
+                    onClick={() => setSheet({ item: sheet.item, tamanho: t.tamanho })}
+                  >
+                    {t.tamanho}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginBottom: 2 }}>
+              {produtoDoSheet.familiaOlfativa}
             </p>
+            <p className="sheet-descricao">{produtoDoSheet.descricaoCurta}</p>
 
             <div className="stock-card-footer" style={{ marginBottom: 14 }}>
               <span className="stock-card-price" style={{ fontSize: "1.1rem" }}>
-                {currency(produtoAberto.preco)}
+                {currency(produtoDoSheet.preco)}
               </span>
-              {!produtoAberto.disponivel && <span className="badge badge-low">Indisponível</span>}
+              {!produtoDoSheet.disponivel && <span className="badge badge-low">Indisponível</span>}
             </div>
 
-            {catalogo.whatsapp ? (
-              <a
+            {produtoDoSheet.disponivel ? (
+              <button
                 className="btn btn-primary btn-block"
+                onClick={() =>
+                  adicionarAoCarrinho(
+                    produtoDoSheet,
+                    sheet.item.tipo === "variante" ? `${nomeDoSheet} (${sheet.tamanho})` : nomeDoSheet
+                  )
+                }
+              >
+                Adicionar ao carrinho
+              </button>
+            ) : catalogo.whatsapp ? (
+              <a
+                className="btn btn-ghost btn-block"
                 href={linkWhatsApp(
                   catalogo.whatsapp,
-                  `Oi! Vi o ${produtoAberto.nome} no seu catálogo e queria saber mais.`
+                  `Oi! Vi o ${nomeDoSheet} no seu catálogo, mas está indisponível. Você sabe quando volta?`
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Falar no WhatsApp
+                Perguntar disponibilidade no WhatsApp
               </a>
             ) : (
               <button className="btn btn-ghost btn-block" disabled>
-                WhatsApp indisponível
+                Indisponível no momento
               </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {carrinhoAberto && (
+        <div className="sheet-overlay" onClick={() => setCarrinhoAberto(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <div className="sheet-header">
+              <h2>Seu carrinho</h2>
+              <button className="sheet-close" onClick={() => setCarrinhoAberto(false)}>
+                ✕
+              </button>
+            </div>
+
+            {carrinho.length === 0 ? (
+              <div className="empty-state">Carrinho vazio.</div>
+            ) : (
+              <>
+                <div style={{ marginBottom: 10 }}>
+                  {carrinho.map((item) => (
+                    <div key={item.chave} className="catalogo-carrinho-linha">
+                      <span style={{ flex: 1, fontSize: "0.86rem" }}>{item.nome}</span>
+                      <span style={{ fontSize: "0.8rem", color: "var(--muted)", whiteSpace: "nowrap" }}>
+                        {currency(item.preco)}
+                      </span>
+                      <div className="qty-control">
+                        <button onClick={() => alterarQuantidade(item.chave, item.quantidade - 1)}>
+                          −
+                        </button>
+                        <span style={{ minWidth: 20, textAlign: "center" }}>{item.quantidade}</span>
+                        <button onClick={() => alterarQuantidade(item.chave, item.quantidade + 1)}>
+                          +
+                        </button>
+                      </div>
+                      <button
+                        className="btn btn-ghost btn-icon"
+                        onClick={() => removerDoCarrinho(item.chave)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="cart-line" style={{ fontWeight: 700, marginBottom: 14 }}>
+                  <span>Total</span>
+                  <span>{currency(totalCarrinho)}</span>
+                </div>
+
+                {catalogo.whatsapp ? (
+                  <a
+                    className="btn btn-primary btn-block"
+                    href={linkWhatsApp(catalogo.whatsapp, montarMensagemPedido(carrinho, totalCarrinho))}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setCarrinhoAberto(false)}
+                  >
+                    Enviar pedido no WhatsApp
+                  </a>
+                ) : (
+                  <button className="btn btn-ghost btn-block" disabled>
+                    WhatsApp indisponível
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -248,12 +475,14 @@ export default function CatalogoPublicoPage() {
 
 function CardCatalogo({
   item,
+  maisVendido,
   onAbrir,
 }: {
   item: ItemCatalogo;
-  onAbrir: (p: ProdutoCatalogoPublico) => void;
+  maisVendido: boolean;
+  onAbrir: (item: ItemCatalogo, tamanhoAtual: "17ml" | "100ml" | null) => void;
 }) {
-  const padraoInicial = item.tipo === "variante" ? ultimoTamanhoDisponivel(item) : null;
+  const padraoInicial = item.tipo === "variante" ? tamanhoPadrao(item) : null;
   const [tamanhoSelecionado, setTamanhoSelecionado] = useState<"17ml" | "100ml" | null>(
     padraoInicial
   );
@@ -261,12 +490,15 @@ function CardCatalogo({
   if (item.tipo === "simples") {
     const p = item.produto;
     return (
-      <div className="catalogo-card" onClick={() => onAbrir(p)}>
+      <div className="catalogo-card" onClick={() => onAbrir(item, null)}>
         <div className="catalogo-card-media">
           {p.imagem ? (
             <img src={p.imagem} alt={p.nome} />
           ) : (
             <span className="catalogo-card-placeholder">{p.nome.slice(0, 1)}</span>
+          )}
+          {maisVendido && (
+            <span className="badge badge-info catalogo-card-badge-left">Mais vendido</span>
           )}
           {!p.disponivel && (
             <span className="badge badge-low catalogo-card-badge">Indisponível</span>
@@ -287,11 +519,14 @@ function CardCatalogo({
 
   return (
     <div className="catalogo-card">
-      <div className="catalogo-card-media" onClick={() => onAbrir(atual)}>
+      <div className="catalogo-card-media" onClick={() => onAbrir(item, tamanhoSelecionado)}>
         {atual.imagem ? (
           <img src={atual.imagem} alt={atual.nome} />
         ) : (
           <span className="catalogo-card-placeholder">{item.nome.slice(0, 1)}</span>
+        )}
+        {maisVendido && (
+          <span className="badge badge-info catalogo-card-badge-left">Mais vendido</span>
         )}
         {!atual.disponivel && (
           <span className="badge badge-low catalogo-card-badge">Indisponível</span>
@@ -299,7 +534,7 @@ function CardCatalogo({
       </div>
       <div className="catalogo-card-body">
         <span className="catalogo-card-tag">{atual.familiaOlfativa}</span>
-        <span className="catalogo-card-title" onClick={() => onAbrir(atual)}>
+        <span className="catalogo-card-title" onClick={() => onAbrir(item, tamanhoSelecionado)}>
           {item.nome}
         </span>
         <span className="catalogo-card-price">{currency(atual.preco)}</span>
@@ -324,8 +559,6 @@ function CardCatalogo({
 
 // Padrão: 100ml selecionado quando existe (maior ticket); cai pro 17ml se
 // por algum motivo o 100ml não estiver na lista.
-function ultimoTamanhoDisponivel(
-  item: Extract<ItemCatalogo, { tipo: "variante" }>
-): "17ml" | "100ml" {
+function tamanhoPadrao(item: Extract<ItemCatalogo, { tipo: "variante" }>): "17ml" | "100ml" {
   return item.tamanhos.some((t) => t.tamanho === "100ml") ? "100ml" : "17ml";
 }
