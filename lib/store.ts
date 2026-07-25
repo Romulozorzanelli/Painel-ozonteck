@@ -12,6 +12,45 @@ export type Produto = {
   estoque: number;
   estoqueMinimo: number;
   ativo: boolean;
+  categoria: string;
+};
+
+// Categorias fixas usadas pra classificar o catálogo (campo produtos.categoria)
+// e pra seleção de quais linhas aparecem no Catálogo público de cada revendedor.
+export const CATEGORIAS_CATALOGO: { valor: string; label: string }[] = [
+  { valor: "perfumaria_17ml", label: "Perfumaria 17ml" },
+  { valor: "perfumaria_100ml", label: "Perfumaria 100ml" },
+  { valor: "linha_capilar", label: "Linha Capilar" },
+  { valor: "nutraceuticos", label: "Nutracêuticos" },
+  { valor: "bem_estar", label: "Bem-estar" },
+  { valor: "acessorios", label: "Acessórios" },
+  { valor: "combos", label: "Combos" },
+];
+
+export type CatalogoConfig = {
+  slug: string;
+  titulo: string;
+  categoriasSelecionadas: string[];
+  ativo: boolean;
+};
+
+export type ProdutoCatalogoPublico = {
+  id: string;
+  nome: string;
+  imagem: string | null;
+  preco: number;
+  familiaOlfativa: string;
+  descricaoCurta: string;
+  disponivel: boolean;
+  categoria: string;
+};
+
+export type CatalogoPublico = {
+  titulo: string;
+  nomeRevendedor: string;
+  fotoRevendedor: string | null;
+  whatsapp: string;
+  produtos: ProdutoCatalogoPublico[];
 };
 
 export type Perfil = {
@@ -91,6 +130,7 @@ function produtoFromRow(row: any): Produto {
     estoque: row.estoque,
     estoqueMinimo: row.estoque_minimo,
     ativo: row.ativo,
+    categoria: row.categoria ?? "",
   };
 }
 
@@ -898,4 +938,109 @@ export async function uploadFotoPerfil(blob: Blob): Promise<string> {
 
   const { data } = supabase.storage.from("perfil-fotos").getPublicUrl(caminho);
   return data.publicUrl;
+}
+
+/* ---------------------------- Catálogo (config do revendedor) ---------------------------- */
+
+function catalogoConfigFromRow(row: any): CatalogoConfig {
+  return {
+    slug: row.slug,
+    titulo: row.titulo ?? "",
+    categoriasSelecionadas: row.categorias_selecionadas ?? [],
+    ativo: !!row.ativo,
+  };
+}
+
+export async function getCatalogoConfig(): Promise<CatalogoConfig | null> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from("catalogo_config")
+    .select("*")
+    .eq("owner_id", user.id)
+    .maybeSingle();
+
+  return data ? catalogoConfigFromRow(data) : null;
+}
+
+// Checa disponibilidade de slug via função do banco (não vaza nenhum outro
+// dado, só true/false). slugAtual evita falso "ocupado" quando o revendedor
+// salva de novo sem mudar o próprio link.
+export async function verificarSlugDisponivel(
+  slug: string,
+  slugAtual?: string
+): Promise<boolean> {
+  if (slugAtual && slug === slugAtual) return true;
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("catalogo_slug_disponivel", {
+    p_slug: slug,
+  });
+  if (error) throw error;
+  return Boolean(data);
+}
+
+export async function salvarCatalogoConfig(dados: {
+  slug: string;
+  titulo: string;
+  categoriasSelecionadas: string[];
+  ativo: boolean;
+}): Promise<CatalogoConfig> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Usuário não autenticado.");
+
+  const { data, error } = await supabase
+    .from("catalogo_config")
+    .upsert(
+      {
+        owner_id: user.id,
+        slug: dados.slug,
+        titulo: dados.titulo,
+        categorias_selecionadas: dados.categoriasSelecionadas,
+        ativo: dados.ativo,
+        atualizado_em: new Date().toISOString(),
+      },
+      { onConflict: "owner_id" }
+    )
+    .select()
+    .single();
+
+  if (error) throw error;
+  return catalogoConfigFromRow(data);
+}
+
+/* ---------------------------- Catálogo público (rota sem login) ---------------------------- */
+
+// Chama a função catalogo_publico(slug) no banco (SECURITY DEFINER), que
+// já devolve só os campos seguros pra exibição pública — nunca custo, nunca
+// estoque exato, só disponível/indisponível. Não depende de nenhuma
+// política de leitura anônima nas tabelas reais.
+export async function getCatalogoPublico(slug: string): Promise<CatalogoPublico | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("catalogo_publico", { p_slug: slug });
+  if (error) throw error;
+  if (!data) return null;
+
+  return {
+    titulo: data.titulo ?? "",
+    nomeRevendedor: data.nome_revendedor ?? "",
+    fotoRevendedor: data.foto_revendedor ?? null,
+    whatsapp: data.whatsapp ?? "",
+    produtos: (data.produtos ?? []).map((p: any) => ({
+      id: p.id,
+      nome: p.nome,
+      imagem: p.imagem,
+      preco: Number(p.preco),
+      familiaOlfativa: p.familia_olfativa,
+      descricaoCurta: p.descricao_curta,
+      disponivel: !!p.disponivel,
+      categoria: p.categoria,
+    })),
+  };
 }
