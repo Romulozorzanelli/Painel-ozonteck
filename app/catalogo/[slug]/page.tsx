@@ -365,18 +365,10 @@ export default function CatalogoPublicoPage() {
           ) : (
             <>
               <img src={LOGO_URL} alt="Avance Vendas" className="top-bar-logo" />
-              <div className="brand">{tituloExibido}</div>
+              <div className="brand">Catálogo</div>
             </>
           )}
           <div className="top-bar-actions">
-            {!itemAberto && (categoriasDisponiveis.length > 1 || temPerfumaria) && (
-              <button className="catalogo-cart-btn" onClick={() => setFiltrosAbertos(true)}>
-                <IconFiltro className="icon-sm" />
-                {(filtroCategoria !== "todas" || filtroSexo !== "todos") && (
-                  <span className="catalogo-cart-count">•</span>
-                )}
-              </button>
-            )}
             <button className="catalogo-cart-btn" onClick={() => setCarrinhoAberto(true)}>
               <IconCarrinho className="icon-sm" />
               {qtdCarrinho > 0 && <span className="catalogo-cart-count">{qtdCarrinho}</span>}
@@ -396,9 +388,19 @@ export default function CatalogoPublicoPage() {
           />
         ) : (
           <>
-            <div className="page-header">
-              <h1>{tituloExibido}</h1>
-              <p>{subtitulo}</p>
+            <div className="page-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <h1>{tituloExibido}</h1>
+                <p>{subtitulo}</p>
+              </div>
+              {(categoriasDisponiveis.length > 1 || temPerfumaria) && (
+                <button className="catalogo-cart-btn" style={{ flexShrink: 0 }} onClick={() => setFiltrosAbertos(true)}>
+                  <IconFiltro className="icon-sm" />
+                  {(filtroCategoria !== "todas" || filtroSexo !== "todos") && (
+                    <span className="catalogo-cart-count">•</span>
+                  )}
+                </button>
+              )}
             </div>
 
             {catalogo.produtos.length === 0 && (
