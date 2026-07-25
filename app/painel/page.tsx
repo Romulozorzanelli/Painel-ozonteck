@@ -4364,23 +4364,34 @@ function PainelShell() {
   const [aba, setAbaEstado] = useState<(typeof TABS)[number]["id"]>(() =>
     abaValida(searchParams.get("aba"))
   );
+  // Abas já visitadas continuam montadas (só ficam escondidas), pra trocar
+  // de aba não precisar buscar tudo de novo no servidor toda vez.
+  const [abasVisitadas, setAbasVisitadas] = useState<Set<(typeof TABS)[number]["id"]>>(
+    () => new Set([abaValida(searchParams.get("aba"))])
+  );
   const [vendaClienteId, setVendaClienteId] = useState<string | null>(null);
   const [vendaProdutoId, setVendaProdutoId] = useState<string | null>(null);
   const [clienteEditarId, setClienteEditarId] = useState<string | null>(null);
   const [menuAberto, setMenuAberto] = useState(false);
   const atual = TABS.find((t) => t.id === aba)!;
 
+  function marcarVisitada(id: (typeof TABS)[number]["id"]) {
+    setAbasVisitadas((atualSet) => (atualSet.has(id) ? atualSet : new Set(atualSet).add(id)));
+  }
+
   // Mantem a aba sincronizada com a URL (?aba=...): trocar de aba empilha uma
   // entrada no historico do navegador, e o botao voltar troca de aba em vez
   // de sair do app inteiro (que era o problema antes).
   function irParaAba(novaAba: (typeof TABS)[number]["id"]) {
     setAbaEstado(novaAba);
+    marcarVisitada(novaAba);
     router.push(`/painel?aba=${novaAba}`, { scroll: false });
   }
 
   useEffect(() => {
     const paramAba = abaValida(searchParams.get("aba"));
-    setAbaEstado((atual) => (atual === paramAba ? atual : paramAba));
+    setAbaEstado((atualAba) => (atualAba === paramAba ? atualAba : paramAba));
+    marcarVisitada(paramAba);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
@@ -4443,48 +4454,72 @@ function PainelShell() {
         </div>
       </header>
       <main className="main">
-        {aba === "inicio" && (
-          <TabInicio
-            onCompletarCadastro={(clienteId) => {
-              setClienteEditarId(clienteId);
-              irParaAba("clientes");
-            }}
-          />
+        {abasVisitadas.has("inicio") && (
+          <div style={{ display: aba === "inicio" ? "block" : "none" }}>
+            <TabInicio
+              onCompletarCadastro={(clienteId) => {
+                setClienteEditarId(clienteId);
+                irParaAba("clientes");
+              }}
+            />
+          </div>
         )}
-        {aba === "estoque" && (
-          <TabEstoque
-            onVenderProduto={(produtoId) => {
-              setVendaProdutoId(produtoId);
-              irParaAba("vendas");
-            }}
-          />
+        {abasVisitadas.has("estoque") && (
+          <div style={{ display: aba === "estoque" ? "block" : "none" }}>
+            <TabEstoque
+              onVenderProduto={(produtoId) => {
+                setVendaProdutoId(produtoId);
+                irParaAba("vendas");
+              }}
+            />
+          </div>
         )}
-        {aba === "clientes" && (
-          <TabClientes
-            onNovaVenda={(clienteId) => {
-              setVendaClienteId(clienteId);
-              irParaAba("vendas");
-            }}
-            clienteParaEditar={clienteEditarId}
-            aoConsumirClienteParaEditar={() => setClienteEditarId(null)}
-          />
+        {abasVisitadas.has("clientes") && (
+          <div style={{ display: aba === "clientes" ? "block" : "none" }}>
+            <TabClientes
+              onNovaVenda={(clienteId) => {
+                setVendaClienteId(clienteId);
+                irParaAba("vendas");
+              }}
+              clienteParaEditar={clienteEditarId}
+              aoConsumirClienteParaEditar={() => setClienteEditarId(null)}
+            />
+          </div>
         )}
-        {aba === "vendas" && (
-          <TabVendas
-            clientePreSelecionado={vendaClienteId}
-            aoConsumirPreSelecao={() => setVendaClienteId(null)}
-            produtoPreSelecionado={vendaProdutoId}
-            aoConsumirProdutoPreSelecao={() => setVendaProdutoId(null)}
-            onCompletarWhatsapp={(clienteId) => {
-              setClienteEditarId(clienteId);
-              irParaAba("clientes");
-            }}
-          />
+        {abasVisitadas.has("vendas") && (
+          <div style={{ display: aba === "vendas" ? "block" : "none" }}>
+            <TabVendas
+              clientePreSelecionado={vendaClienteId}
+              aoConsumirPreSelecao={() => setVendaClienteId(null)}
+              produtoPreSelecionado={vendaProdutoId}
+              aoConsumirProdutoPreSelecao={() => setVendaProdutoId(null)}
+              onCompletarWhatsapp={(clienteId) => {
+                setClienteEditarId(clienteId);
+                irParaAba("clientes");
+              }}
+            />
+          </div>
         )}
-        {aba === "financeiro" && <TabFinanceiro />}
-        {aba === "campanha" && <TabCampanha />}
-        {aba === "catalogo" && <TabCatalogo />}
-        {aba === "perfil" && <TabPerfil />}
+        {abasVisitadas.has("financeiro") && (
+          <div style={{ display: aba === "financeiro" ? "block" : "none" }}>
+            <TabFinanceiro />
+          </div>
+        )}
+        {abasVisitadas.has("campanha") && (
+          <div style={{ display: aba === "campanha" ? "block" : "none" }}>
+            <TabCampanha />
+          </div>
+        )}
+        {abasVisitadas.has("catalogo") && (
+          <div style={{ display: aba === "catalogo" ? "block" : "none" }}>
+            <TabCatalogo />
+          </div>
+        )}
+        {abasVisitadas.has("perfil") && (
+          <div style={{ display: aba === "perfil" ? "block" : "none" }}>
+            <TabPerfil />
+          </div>
+        )}
       </main>
       <nav className="bottom-nav">
         {TABS_BARRA.map((t) => (
