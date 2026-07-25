@@ -927,7 +927,7 @@ function TabInicio({
 
 /* ---------------------------- Campanha ---------------------------- */
 
-function TabCampanha() {
+function TabCampanha({ ativo }: { ativo: boolean }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [filtroSexo, setFiltroSexo] = useState<"qualquer" | "masculino" | "feminino">(
@@ -941,12 +941,25 @@ function TabCampanha() {
     "Oi {nome}! Passando aqui com uma novidade especial pra você! 😊"
   );
   const [enviadosCampanha, setEnviadosCampanha] = useState<Set<string>>(new Set());
+  const jaAtivouAntes = useRef(false);
 
   useEffect(() => {
     getClientes()
       .then(setClientes)
       .finally(() => setCarregando(false));
   }, []);
+
+  // Ao voltar pra essa aba, revalida por baixo dos panos, sem mostrar
+  // "Carregando" de novo.
+  useEffect(() => {
+    if (!ativo) return;
+    if (!jaAtivouAntes.current) {
+      jaAtivouAntes.current = true;
+      return;
+    }
+    getClientes().then(setClientes);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativo]);
 
   function aplicarPresetCampanha(
     preset: "maes" | "pais" | "namorados" | "mulher" | "limpar"
@@ -3230,7 +3243,7 @@ function TabVendas({
 
 /* ---------------------------- Financeiro ---------------------------- */
 
-function TabFinanceiro() {
+function TabFinanceiro({ ativo }: { ativo: boolean }) {
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -3241,15 +3254,30 @@ function TabFinanceiro() {
   const [valor, setValor] = useState(0);
   const [removendoId, setRemovendoId] = useState<string | null>(null);
   const [salvandoLancamento, setSalvandoLancamento] = useState(false);
+  const jaAtivouAntes = useRef(false);
+
+  function buscarDados() {
+    return Promise.all([getFinanceiro(), getProdutos()]).then(([f, p]) => {
+      setLancamentos(f);
+      setProdutos(p);
+    });
+  }
 
   useEffect(() => {
-    Promise.all([getFinanceiro(), getProdutos()])
-      .then(([f, p]) => {
-        setLancamentos(f);
-        setProdutos(p);
-      })
-      .finally(() => setCarregando(false));
+    buscarDados().finally(() => setCarregando(false));
   }, []);
+
+  // Ao voltar pra essa aba, revalida por baixo dos panos, sem mostrar
+  // "Carregando" de novo.
+  useEffect(() => {
+    if (!ativo) return;
+    if (!jaAtivouAntes.current) {
+      jaAtivouAntes.current = true;
+      return;
+    }
+    buscarDados();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativo]);
 
   const resumo = useMemo(() => {
     const entradas = lancamentos.filter((l) => l.tipo === "entrada").reduce((s, l) => s + l.valor, 0);
@@ -4581,12 +4609,12 @@ function PainelShell() {
         )}
         {abasVisitadas.has("financeiro") && (
           <div style={{ display: aba === "financeiro" ? "block" : "none" }}>
-            <TabFinanceiro />
+            <TabFinanceiro ativo={aba === "financeiro"} />
           </div>
         )}
         {abasVisitadas.has("campanha") && (
           <div style={{ display: aba === "campanha" ? "block" : "none" }}>
-            <TabCampanha />
+            <TabCampanha ativo={aba === "campanha"} />
           </div>
         )}
         {abasVisitadas.has("catalogo") && (
