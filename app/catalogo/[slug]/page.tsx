@@ -26,7 +26,7 @@ function linkWhatsApp(telefone: string, mensagem: string): string {
 }
 
 // Tira o "17 ML" / "100 ML" do final do nome, pra usar como título comum
-// quando os dois tamanhos do mesmo perfume viram um card só.
+// quando os dois tamanhos do mesmo perfume viram um item só.
 function nomeSemTamanho(nome: string): string {
   return nome.replace(/\s+(17|100)\s*ml\.?$/i, "").trim();
 }
@@ -47,9 +47,9 @@ type ItemCatalogo =
     }
   | { tipo: "simples"; chave: string; vendasTotais: number; produto: ProdutoCatalogoPublico };
 
-// Junta perfumaria 17ml e 100ml do mesmo perfume num card só (com seletor de
-// tamanho), e deixa como card único quem não tem par nos dois tamanhos.
-// A popularidade do card combinado soma a venda dos dois tamanhos.
+// Junta perfumaria 17ml e 100ml do mesmo perfume num item só (com seletor de
+// tamanho), e deixa como item único quem não tem par nos dois tamanhos.
+// A popularidade do item combinado soma a venda dos dois tamanhos.
 function agruparPerfumaria(produtos: ProdutoCatalogoPublico[]): ItemCatalogo[] {
   const p17 = produtos.filter((p) => p.categoria === "perfumaria_17ml");
   const p100 = produtos.filter((p) => p.categoria === "perfumaria_100ml");
@@ -107,6 +107,10 @@ function ordenarPorPopularidade(itens: ItemCatalogo[]): ItemCatalogo[] {
   });
 }
 
+function tamanhoPadrao(item: Extract<ItemCatalogo, { tipo: "variante" }>): "17ml" | "100ml" {
+  return item.tamanhos.some((t) => t.tamanho === "100ml") ? "100ml" : "17ml";
+}
+
 type ItemCarrinho = {
   chave: string;
   nome: string;
@@ -122,12 +126,26 @@ function montarMensagemPedido(itens: ItemCarrinho[], total: number): string {
   return `Oi! Fiz uma seleção no seu catálogo e queria fechar esse pedido:\n\n${linhas}\n\nTotal: ${currency(total)}`;
 }
 
+// Estrelas decorativas (nota de confiança visual), sem número de avaliações
+// atrelado, já que o sistema ainda não tem avaliação real de cliente.
+function Estrelas() {
+  return (
+    <div className="catalogo-estrelas">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <svg key={i} width="13" height="13" viewBox="0 0 24 24" fill="var(--gold)">
+          <path d="M12 2.5l2.9 6.3 6.9.7-5.2 4.7 1.5 6.8L12 17.6l-6.1 3.4 1.5-6.8-5.2-4.7 6.9-.7Z" />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
 export default function CatalogoPublicoPage() {
   const params = useParams<{ slug: string }>();
   const [catalogo, setCatalogo] = useState<CatalogoPublico | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [naoEncontrado, setNaoEncontrado] = useState(false);
-  const [sheet, setSheet] = useState<{ item: ItemCatalogo; tamanho: "17ml" | "100ml" | null } | null>(
+  const [detalhe, setDetalhe] = useState<{ item: ItemCatalogo; tamanho: "17ml" | "100ml" | null } | null>(
     null
   );
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
@@ -145,6 +163,10 @@ export default function CatalogoPublicoPage() {
       .catch(() => setNaoEncontrado(true))
       .finally(() => setCarregando(false));
   }, [params.slug]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [detalhe]);
 
   const temPerfumaria = useMemo(
     () =>
@@ -188,10 +210,6 @@ export default function CatalogoPublicoPage() {
     );
   }, [itensPerfumaria, porOutraCategoria]);
 
-  function abrirSheet(item: ItemCatalogo, tamanhoAtual: "17ml" | "100ml" | null) {
-    setSheet({ item, tamanho: tamanhoAtual });
-  }
-
   function adicionarAoCarrinho(produto: ProdutoCatalogoPublico, nomeExibido: string) {
     setCarrinho((atual) => {
       const idx = atual.findIndex((i) => i.chave === produto.id);
@@ -211,7 +229,6 @@ export default function CatalogoPublicoPage() {
         },
       ];
     });
-    setSheet(null);
   }
 
   function alterarQuantidade(chave: string, novaQtd: number) {
@@ -254,67 +271,82 @@ export default function CatalogoPublicoPage() {
     ? `Produtos selecionados por ${catalogo.nomeRevendedor}`
     : "Toque num produto pra ver detalhes";
 
-  const produtoDoSheet =
-    sheet?.item.tipo === "variante"
-      ? sheet.item.tamanhos.find((t) => t.tamanho === sheet.tamanho)?.produto ??
-        sheet.item.tamanhos[0].produto
-      : sheet?.item.produto ?? null;
-
-  const nomeDoSheet = sheet ? nomeItem(sheet.item) : "";
-
   return (
     <div className="app-shell">
       <div className="top-bar">
         <div className="top-bar-inner">
-          <img src={LOGO_URL} alt="Avance Vendas" className="top-bar-logo" />
-          <div className="brand">{tituloExibido}</div>
+          {detalhe ? (
+            <>
+              <button className="catalogo-voltar" onClick={() => setDetalhe(null)}>
+                ←
+              </button>
+              <div className="brand">{nomeItem(detalhe.item)}</div>
+            </>
+          ) : (
+            <>
+              <img src={LOGO_URL} alt="Avance Vendas" className="top-bar-logo" />
+              <div className="brand">{tituloExibido}</div>
+            </>
+          )}
         </div>
       </div>
 
       <div className="main" style={{ paddingBottom: carrinho.length > 0 ? 84 : undefined }}>
-        <div className="page-header">
-          <h1>{tituloExibido}</h1>
-          <p>{subtitulo}</p>
-        </div>
-
-        {catalogo.produtos.length === 0 && (
-          <div className="empty-state">
-            <div className="title">Nenhum produto disponível</div>
-            Esse catálogo ainda não tem produtos publicados.
-          </div>
-        )}
-
-        {temPerfumaria && (
-          <div style={{ marginBottom: 22 }}>
-            <h2 className="panel-title">Perfumaria</h2>
-            <div className="catalogo-grid">
-              {itensPerfumaria.map((item) => (
-                <CardCatalogo
-                  key={item.chave}
-                  item={item}
-                  maisVendido={maisVendidosChaves.has(item.chave)}
-                  onAbrir={abrirSheet}
-                />
-              ))}
+        {detalhe ? (
+          <TelaDetalheProduto
+            item={detalhe.item}
+            tamanho={detalhe.tamanho}
+            onTrocarTamanho={(t) => setDetalhe({ item: detalhe.item, tamanho: t })}
+            whatsapp={catalogo.whatsapp}
+            onAdicionar={adicionarAoCarrinho}
+          />
+        ) : (
+          <>
+            <div className="page-header">
+              <h1>{tituloExibido}</h1>
+              <p>{subtitulo}</p>
             </div>
-          </div>
-        )}
 
-        {Array.from(porOutraCategoria.entries()).map(([categoria, itens]) => (
-          <div key={categoria} style={{ marginBottom: 22 }}>
-            <h2 className="panel-title">{LABEL_CATEGORIA[categoria] ?? categoria}</h2>
-            <div className="catalogo-grid">
-              {itens.map((item) => (
-                <CardCatalogo
-                  key={item.chave}
-                  item={item}
-                  maisVendido={maisVendidosChaves.has(item.chave)}
-                  onAbrir={abrirSheet}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
+            {catalogo.produtos.length === 0 && (
+              <div className="empty-state">
+                <div className="title">Nenhum produto disponível</div>
+                Esse catálogo ainda não tem produtos publicados.
+              </div>
+            )}
+
+            {temPerfumaria && (
+              <div style={{ marginBottom: 26 }}>
+                <h2 className="panel-title">Perfumaria</h2>
+                <div className="catalogo-grid">
+                  {itensPerfumaria.map((item) => (
+                    <CardCatalogo
+                      key={item.chave}
+                      item={item}
+                      maisVendido={maisVendidosChaves.has(item.chave)}
+                      onAbrir={(i, t) => setDetalhe({ item: i, tamanho: t })}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {Array.from(porOutraCategoria.entries()).map(([categoria, itens]) => (
+              <div key={categoria} style={{ marginBottom: 26 }}>
+                <h2 className="panel-title">{LABEL_CATEGORIA[categoria] ?? categoria}</h2>
+                <div className="catalogo-grid">
+                  {itens.map((item) => (
+                    <CardCatalogo
+                      key={item.chave}
+                      item={item}
+                      maisVendido={maisVendidosChaves.has(item.chave)}
+                      onAbrir={(i, t) => setDetalhe({ item: i, tamanho: t })}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
       </div>
 
       {carrinho.length > 0 && !carrinhoAberto && (
@@ -324,83 +356,6 @@ export default function CatalogoPublicoPage() {
           </span>
           <span>{currency(totalCarrinho)}</span>
         </button>
-      )}
-
-      {sheet && produtoDoSheet && (
-        <div className="sheet-overlay" onClick={() => setSheet(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-handle" />
-            <div className="sheet-header">
-              <h2>{nomeDoSheet}</h2>
-              <button className="sheet-close" onClick={() => setSheet(null)}>
-                ✕
-              </button>
-            </div>
-
-            {produtoDoSheet.imagem && (
-              <div className="stock-detail-media" style={{ marginBottom: 12 }}>
-                <img src={produtoDoSheet.imagem} alt={produtoDoSheet.nome} />
-              </div>
-            )}
-
-            {sheet.item.tipo === "variante" && (
-              <div className="catalogo-size-toggle" style={{ marginBottom: 12 }}>
-                {sheet.item.tamanhos.map((t) => (
-                  <button
-                    key={t.tamanho}
-                    className={"catalogo-size-pill " + (sheet.tamanho === t.tamanho ? "active" : "")}
-                    style={{ fontSize: "0.78rem", padding: "6px 0" }}
-                    onClick={() => setSheet({ item: sheet.item, tamanho: t.tamanho })}
-                  >
-                    {t.tamanho}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginBottom: 2 }}>
-              {produtoDoSheet.familiaOlfativa}
-            </p>
-            <p className="sheet-descricao">{produtoDoSheet.descricaoCurta}</p>
-
-            <div className="stock-card-footer" style={{ marginBottom: 14 }}>
-              <span className="stock-card-price" style={{ fontSize: "1.1rem" }}>
-                {currency(produtoDoSheet.preco)}
-              </span>
-              {!produtoDoSheet.disponivel && <span className="badge badge-low">Indisponível</span>}
-            </div>
-
-            {produtoDoSheet.disponivel ? (
-              <button
-                className="btn btn-primary btn-block"
-                onClick={() =>
-                  adicionarAoCarrinho(
-                    produtoDoSheet,
-                    sheet.item.tipo === "variante" ? `${nomeDoSheet} (${sheet.tamanho})` : nomeDoSheet
-                  )
-                }
-              >
-                Adicionar ao carrinho
-              </button>
-            ) : catalogo.whatsapp ? (
-              <a
-                className="btn btn-ghost btn-block"
-                href={linkWhatsApp(
-                  catalogo.whatsapp,
-                  `Oi! Vi o ${nomeDoSheet} no seu catálogo, mas está indisponível. Você sabe quando volta?`
-                )}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Perguntar disponibilidade no WhatsApp
-              </a>
-            ) : (
-              <button className="btn btn-ghost btn-block" disabled>
-                Indisponível no momento
-              </button>
-            )}
-          </div>
-        </div>
       )}
 
       {carrinhoAberto && (
@@ -487,57 +442,31 @@ function CardCatalogo({
     padraoInicial
   );
 
-  if (item.tipo === "simples") {
-    const p = item.produto;
-    return (
-      <div className="catalogo-card" onClick={() => onAbrir(item, null)}>
-        <div className="catalogo-card-media">
-          {p.imagem ? (
-            <img src={p.imagem} alt={p.nome} />
-          ) : (
-            <span className="catalogo-card-placeholder">{p.nome.slice(0, 1)}</span>
-          )}
-          {maisVendido && (
-            <span className="badge badge-info catalogo-card-badge-left">Mais vendido</span>
-          )}
-          {!p.disponivel && (
-            <span className="badge badge-low catalogo-card-badge">Indisponível</span>
-          )}
-        </div>
-        <div className="catalogo-card-body">
-          <span className="catalogo-card-tag">{p.familiaOlfativa}</span>
-          <span className="catalogo-card-title">{p.nome}</span>
-          <span className="catalogo-card-price">{currency(p.preco)}</span>
-        </div>
-      </div>
-    );
-  }
-
-  const atual =
-    item.tamanhos.find((t) => t.tamanho === tamanhoSelecionado)?.produto ??
-    item.tamanhos[0].produto;
+  const atual = item.tipo === "variante"
+    ? item.tamanhos.find((t) => t.tamanho === tamanhoSelecionado)?.produto ?? item.tamanhos[0].produto
+    : item.produto;
+  const nome = item.tipo === "variante" ? item.nome : item.produto.nome;
 
   return (
-    <div className="catalogo-card">
-      <div className="catalogo-card-media" onClick={() => onAbrir(item, tamanhoSelecionado)}>
+    <div className="catalogo-item" onClick={() => onAbrir(item, tamanhoSelecionado)}>
+      <div className="catalogo-item-media">
         {atual.imagem ? (
-          <img src={atual.imagem} alt={atual.nome} />
+          <img src={atual.imagem} alt={nome} />
         ) : (
-          <span className="catalogo-card-placeholder">{item.nome.slice(0, 1)}</span>
+          <span className="catalogo-item-placeholder">{nome.slice(0, 1)}</span>
         )}
         {maisVendido && (
-          <span className="badge badge-info catalogo-card-badge-left">Mais vendido</span>
+          <span className="badge badge-info catalogo-item-badge-left">Mais vendido</span>
         )}
         {!atual.disponivel && (
-          <span className="badge badge-low catalogo-card-badge">Indisponível</span>
+          <span className="badge badge-low catalogo-item-badge">Indisponível</span>
         )}
       </div>
-      <div className="catalogo-card-body">
-        <span className="catalogo-card-tag">{atual.familiaOlfativa}</span>
-        <span className="catalogo-card-title" onClick={() => onAbrir(item, tamanhoSelecionado)}>
-          {item.nome}
-        </span>
-        <span className="catalogo-card-price">{currency(atual.preco)}</span>
+      <div className="catalogo-item-nome">{nome}</div>
+      <Estrelas />
+      <div className="catalogo-item-preco">{currency(atual.preco)}</div>
+      <p className="catalogo-item-desc">{atual.descricaoCurta || atual.familiaOlfativa}</p>
+      {item.tipo === "variante" && (
         <div className="catalogo-size-toggle">
           {item.tamanhos.map((t) => (
             <button
@@ -552,13 +481,98 @@ function CardCatalogo({
             </button>
           ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
-// Padrão: 100ml selecionado quando existe (maior ticket); cai pro 17ml se
-// por algum motivo o 100ml não estiver na lista.
-function tamanhoPadrao(item: Extract<ItemCatalogo, { tipo: "variante" }>): "17ml" | "100ml" {
-  return item.tamanhos.some((t) => t.tamanho === "100ml") ? "100ml" : "17ml";
+function TelaDetalheProduto({
+  item,
+  tamanho,
+  onTrocarTamanho,
+  whatsapp,
+  onAdicionar,
+}: {
+  item: ItemCatalogo;
+  tamanho: "17ml" | "100ml" | null;
+  onTrocarTamanho: (t: "17ml" | "100ml") => void;
+  whatsapp: string;
+  onAdicionar: (produto: ProdutoCatalogoPublico, nomeExibido: string) => void;
+}) {
+  const [adicionado, setAdicionado] = useState(false);
+  const produto =
+    item.tipo === "variante"
+      ? item.tamanhos.find((t) => t.tamanho === tamanho)?.produto ?? item.tamanhos[0].produto
+      : item.produto;
+  const nome = nomeItem(item);
+  const nomeExibido = item.tipo === "variante" ? `${nome} (${tamanho})` : nome;
+
+  function adicionar() {
+    onAdicionar(produto, nomeExibido);
+    setAdicionado(true);
+    setTimeout(() => setAdicionado(false), 1800);
+  }
+
+  return (
+    <div>
+      <div className="catalogo-media-fixa">
+        {produto.imagem ? (
+          <img src={produto.imagem} alt={nome} />
+        ) : (
+          <span className="catalogo-item-placeholder" style={{ fontSize: "2.2rem" }}>
+            {nome.slice(0, 1)}
+          </span>
+        )}
+      </div>
+
+      <h1 style={{ marginBottom: 4 }}>{nome}</h1>
+      <Estrelas />
+
+      {item.tipo === "variante" && (
+        <div className="catalogo-size-toggle" style={{ maxWidth: 200, marginTop: 12 }}>
+          {item.tamanhos.map((t) => (
+            <button
+              key={t.tamanho}
+              className={"catalogo-size-pill " + (tamanho === t.tamanho ? "active" : "")}
+              style={{ fontSize: "0.78rem", padding: "7px 0" }}
+              onClick={() => onTrocarTamanho(t.tamanho)}
+            >
+              {t.tamanho}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ fontSize: "1.3rem", fontWeight: 700, color: "var(--gold)", marginTop: 14 }}>
+        {currency(produto.preco)}
+      </div>
+
+      {!produto.disponivel && (
+        <span className="badge badge-low" style={{ marginTop: 8, display: "inline-block" }}>
+          Indisponível no momento, ainda dá pra pedir
+        </span>
+      )}
+
+      <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginTop: 14 }}>
+        {produto.familiaOlfativa}
+      </p>
+      <p className="sheet-descricao">{produto.descricaoCurta}</p>
+
+      <button className="btn btn-primary btn-block" onClick={adicionar}>
+        {adicionado ? "Adicionado!" : "Adicionar ao carrinho"}
+      </button>
+
+      {whatsapp && (
+        <a
+          className="btn btn-ghost btn-block"
+          style={{ marginTop: 10 }}
+          href={linkWhatsApp(whatsapp, `Oi! Vi o ${nomeExibido} no seu catálogo e queria saber mais.`)}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Perguntar no WhatsApp
+        </a>
+      )}
+    </div>
+  );
 }
