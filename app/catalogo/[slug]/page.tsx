@@ -156,6 +156,22 @@ function IconCarrinho({ className }: { className?: string }) {
   );
 }
 
+function IconFiltro({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3.5 5h17L14 13v6l-4 2v-8L3.5 5Z" />
+    </svg>
+  );
+}
+
 export default function CatalogoPublicoPage() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
@@ -168,6 +184,7 @@ export default function CatalogoPublicoPage() {
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);
   const [filtroCategoria, setFiltroCategoria] = useState<string>("todas");
   const [filtroSexo, setFiltroSexo] = useState<"todos" | "feminino" | "masculino">("todos");
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
 
   useEffect(() => {
     getCatalogoPublico(params.slug)
@@ -352,6 +369,14 @@ export default function CatalogoPublicoPage() {
             </>
           )}
           <div className="top-bar-actions">
+            {!itemAberto && (categoriasDisponiveis.length > 1 || temPerfumaria) && (
+              <button className="catalogo-cart-btn" onClick={() => setFiltrosAbertos(true)}>
+                <IconFiltro className="icon-sm" />
+                {(filtroCategoria !== "todas" || filtroSexo !== "todos") && (
+                  <span className="catalogo-cart-count">•</span>
+                )}
+              </button>
+            )}
             <button className="catalogo-cart-btn" onClick={() => setCarrinhoAberto(true)}>
               <IconCarrinho className="icon-sm" />
               {qtdCarrinho > 0 && <span className="catalogo-cart-count">{qtdCarrinho}</span>}
@@ -383,42 +408,8 @@ export default function CatalogoPublicoPage() {
               </div>
             )}
 
-            {categoriasDisponiveis.length > 1 && (
-              <div className="catalogo-filtros">
-                <button
-                  className={"catalogo-filtro-chip " + (filtroCategoria === "todas" ? "active" : "")}
-                  onClick={() => setFiltroCategoria("todas")}
-                >
-                  Todos
-                </button>
-                {categoriasDisponiveis.map((c) => (
-                  <button
-                    key={c.chave}
-                    className={"catalogo-filtro-chip " + (filtroCategoria === c.chave ? "active" : "")}
-                    onClick={() => setFiltroCategoria(c.chave)}
-                  >
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
             {mostraPerfumaria && (
-              <div className="catalogo-filtros">
-                {(["todos", "feminino", "masculino"] as const).map((s) => (
-                  <button
-                    key={s}
-                    className={"catalogo-filtro-chip " + (filtroSexo === s ? "active" : "")}
-                    onClick={() => setFiltroSexo(s)}
-                  >
-                    {s === "todos" ? "Todos" : s === "feminino" ? "Feminino" : "Masculino"}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {mostraPerfumaria && (
-              <div style={{ marginBottom: 26, marginTop: 6 }}>
+              <div style={{ marginBottom: 26 }}>
                 <h2 className="panel-title">Perfumaria</h2>
                 <div className="catalogo-grid">
                   {itensPerfumariaFiltrados.map((item) => (
@@ -516,6 +507,80 @@ export default function CatalogoPublicoPage() {
                   </button>
                 )}
               </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {filtrosAbertos && (
+        <div className="sheet-overlay" onClick={() => setFiltrosAbertos(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <div className="sheet-header">
+              <h2>Filtrar</h2>
+              <button className="sheet-close" onClick={() => setFiltrosAbertos(false)}>
+                ✕
+              </button>
+            </div>
+
+            {categoriasDisponiveis.length > 1 && (
+              <div style={{ marginBottom: 18 }}>
+                <p style={{ fontSize: "0.78rem", color: "var(--cat-muted)", marginBottom: 8 }}>
+                  Categoria
+                </p>
+                <div className="catalogo-filtros" style={{ overflow: "visible", flexWrap: "wrap" }}>
+                  <button
+                    className={"catalogo-filtro-chip " + (filtroCategoria === "todas" ? "active" : "")}
+                    onClick={() => setFiltroCategoria("todas")}
+                  >
+                    Todos
+                  </button>
+                  {categoriasDisponiveis.map((c) => (
+                    <button
+                      key={c.chave}
+                      className={"catalogo-filtro-chip " + (filtroCategoria === c.chave ? "active" : "")}
+                      onClick={() => setFiltroCategoria(c.chave)}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {temPerfumaria && (
+              <div style={{ marginBottom: 18 }}>
+                <p style={{ fontSize: "0.78rem", color: "var(--cat-muted)", marginBottom: 8 }}>
+                  Perfumaria
+                </p>
+                <div className="catalogo-filtros" style={{ overflow: "visible", flexWrap: "wrap" }}>
+                  {(["todos", "feminino", "masculino"] as const).map((s) => (
+                    <button
+                      key={s}
+                      className={"catalogo-filtro-chip " + (filtroSexo === s ? "active" : "")}
+                      onClick={() => setFiltroSexo(s)}
+                    >
+                      {s === "todos" ? "Todos" : s === "feminino" ? "Feminino" : "Masculino"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button className="btn btn-primary btn-block" onClick={() => setFiltrosAbertos(false)}>
+              Ver resultados
+            </button>
+            {(filtroCategoria !== "todas" || filtroSexo !== "todos") && (
+              <button
+                className="btn btn-ghost btn-block"
+                style={{ marginTop: 8 }}
+                onClick={() => {
+                  setFiltroCategoria("todas");
+                  setFiltroSexo("todos");
+                }}
+              >
+                Limpar filtros
+              </button>
             )}
           </div>
         </div>
