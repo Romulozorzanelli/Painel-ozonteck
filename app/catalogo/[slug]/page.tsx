@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   getCatalogoPublico,
   CATEGORIAS_CATALOGO,
@@ -31,8 +31,7 @@ function nomeSemTamanho(nome: string): string {
   return nome.replace(/\s+(17|100)\s*ml\.?$/i, "").trim();
 }
 
-// Os dois tamanhos de um mesmo perfume compartilham a base do id
-// (ex: "soberano-100-ml" e "soberano" | "madame-vi-17-ml" e "madame-vi-100-ml").
+// Os dois tamanhos de um mesmo perfume compartilham a base do id.
 function idBase(id: string): string {
   return id.replace(/-(17|100)-ml$/i, "");
 }
@@ -47,9 +46,6 @@ type ItemCatalogo =
     }
   | { tipo: "simples"; chave: string; vendasTotais: number; produto: ProdutoCatalogoPublico };
 
-// Junta perfumaria 17ml e 100ml do mesmo perfume num item só (com seletor de
-// tamanho), e deixa como item único quem não tem par nos dois tamanhos.
-// A popularidade do item combinado soma a venda dos dois tamanhos.
 function agruparPerfumaria(produtos: ProdutoCatalogoPublico[]): ItemCatalogo[] {
   const p17 = produtos.filter((p) => p.categoria === "perfumaria_17ml");
   const p100 = produtos.filter((p) => p.categoria === "perfumaria_100ml");
@@ -99,7 +95,6 @@ function nomeItem(item: ItemCatalogo): string {
   return item.tipo === "variante" ? item.nome : item.produto.nome;
 }
 
-// Ordena por popularidade (mais vendido primeiro), empate por nome.
 function ordenarPorPopularidade(itens: ItemCatalogo[]): ItemCatalogo[] {
   return [...itens].sort((a, b) => {
     if (b.vendasTotais !== a.vendasTotais) return b.vendasTotais - a.vendasTotais;
@@ -126,13 +121,12 @@ function montarMensagemPedido(itens: ItemCarrinho[], total: number): string {
   return `Oi! Fiz uma seleção no seu catálogo e queria fechar esse pedido:\n\n${linhas}\n\nTotal: ${currency(total)}`;
 }
 
-// Estrelas decorativas (nota de confiança visual), sem número de avaliações
-// atrelado, já que o sistema ainda não tem avaliação real de cliente.
+// Estrelas decorativas (nota de confiança visual), sem número de avaliações.
 function Estrelas() {
   return (
     <div className="catalogo-estrelas">
       {[0, 1, 2, 3, 4].map((i) => (
-        <svg key={i} width="13" height="13" viewBox="0 0 24 24" fill="var(--gold)">
+        <svg key={i} width="13" height="13" viewBox="0 0 24 24" fill="var(--cat-star, var(--warn))">
           <path d="M12 2.5l2.9 6.3 6.9.7-5.2 4.7 1.5 6.8L12 17.6l-6.1 3.4 1.5-6.8-5.2-4.7 6.9-.7Z" />
         </svg>
       ))}
@@ -140,14 +134,32 @@ function Estrelas() {
   );
 }
 
+function IconCarrinho({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="9" cy="20" r="1.4" />
+      <circle cx="18" cy="20" r="1.4" />
+      <path d="M2.5 3h2.2l2.3 12.2a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L21 7.5H6.2" />
+    </svg>
+  );
+}
+
 export default function CatalogoPublicoPage() {
   const params = useParams<{ slug: string }>();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [catalogo, setCatalogo] = useState<CatalogoPublico | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [naoEncontrado, setNaoEncontrado] = useState(false);
-  const [detalhe, setDetalhe] = useState<{ item: ItemCatalogo; tamanho: "17ml" | "100ml" | null } | null>(
-    null
-  );
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);
 
@@ -163,10 +175,6 @@ export default function CatalogoPublicoPage() {
       .catch(() => setNaoEncontrado(true))
       .finally(() => setCarregando(false));
   }, [params.slug]);
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [detalhe]);
 
   const temPerfumaria = useMemo(
     () =>
@@ -197,8 +205,15 @@ export default function CatalogoPublicoPage() {
     return mapa;
   }, [catalogo]);
 
-  // Top 3 mais vendidos do catálogo inteiro (todas as categorias juntas),
-  // só entra quem já vendeu pelo menos 1 unidade.
+  // Mapa de todos os itens (perfumaria + outras categorias), pra resolver o
+  // item aberto a partir do parâmetro da URL.
+  const mapaItens = useMemo(() => {
+    const mapa = new Map<string, ItemCatalogo>();
+    for (const i of itensPerfumaria) mapa.set(i.chave, i);
+    for (const lista of porOutraCategoria.values()) for (const i of lista) mapa.set(i.chave, i);
+    return mapa;
+  }, [itensPerfumaria, porOutraCategoria]);
+
   const maisVendidosChaves = useMemo(() => {
     const todos = [...itensPerfumaria, ...Array.from(porOutraCategoria.values()).flat()];
     return new Set(
@@ -210,6 +225,36 @@ export default function CatalogoPublicoPage() {
     );
   }, [itensPerfumaria, porOutraCategoria]);
 
+  // Tela de detalhe fica representada na própria URL (?p=chave&t=tamanho),
+  // exatamente como o app principal faz com "?aba=". Isso faz o botão
+  // voltar do navegador fechar a tela de detalhe em vez de sair do site.
+  const chaveAberta = searchParams.get("p");
+  const tamanhoAberto = (searchParams.get("t") as "17ml" | "100ml" | null) ?? null;
+  const itemAberto = chaveAberta ? mapaItens.get(chaveAberta) ?? null : null;
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [chaveAberta]);
+
+  function abrirDetalhe(item: ItemCatalogo, tamanho: "17ml" | "100ml" | null) {
+    const qs = new URLSearchParams();
+    qs.set("p", item.chave);
+    if (tamanho) qs.set("t", tamanho);
+    router.push(`/catalogo/${params.slug}?${qs.toString()}`, { scroll: false });
+  }
+
+  function trocarTamanhoDetalhe(t: "17ml" | "100ml") {
+    if (!chaveAberta) return;
+    const qs = new URLSearchParams();
+    qs.set("p", chaveAberta);
+    qs.set("t", t);
+    router.replace(`/catalogo/${params.slug}?${qs.toString()}`, { scroll: false });
+  }
+
+  function fecharDetalhe() {
+    router.back();
+  }
+
   function adicionarAoCarrinho(produto: ProdutoCatalogoPublico, nomeExibido: string) {
     setCarrinho((atual) => {
       const idx = atual.findIndex((i) => i.chave === produto.id);
@@ -220,13 +265,7 @@ export default function CatalogoPublicoPage() {
       }
       return [
         ...atual,
-        {
-          chave: produto.id,
-          nome: nomeExibido,
-          preco: produto.preco,
-          quantidade: 1,
-          imagem: produto.imagem,
-        },
+        { chave: produto.id, nome: nomeExibido, preco: produto.preco, quantidade: 1, imagem: produto.imagem },
       ];
     });
   }
@@ -247,7 +286,7 @@ export default function CatalogoPublicoPage() {
 
   if (carregando) {
     return (
-      <div className="login-shell">
+      <div className="login-shell catalogo-tema-claro">
         <div className="empty-state">Carregando catálogo...</div>
       </div>
     );
@@ -255,7 +294,7 @@ export default function CatalogoPublicoPage() {
 
   if (naoEncontrado || !catalogo) {
     return (
-      <div className="login-shell">
+      <div className="login-shell catalogo-tema-claro">
         <div className="login-card">
           <img src={LOGO_URL} alt="Avance Vendas" className="login-logo" />
           <p className="login-subtitle">
@@ -272,15 +311,15 @@ export default function CatalogoPublicoPage() {
     : "Toque num produto pra ver detalhes";
 
   return (
-    <div className="app-shell">
+    <div className="app-shell catalogo-tema-claro">
       <div className="top-bar">
         <div className="top-bar-inner">
-          {detalhe ? (
+          {itemAberto ? (
             <>
-              <button className="catalogo-voltar" onClick={() => setDetalhe(null)}>
+              <button className="catalogo-voltar" onClick={fecharDetalhe}>
                 ←
               </button>
-              <div className="brand">{nomeItem(detalhe.item)}</div>
+              <div className="brand">{nomeItem(itemAberto)}</div>
             </>
           ) : (
             <>
@@ -288,15 +327,21 @@ export default function CatalogoPublicoPage() {
               <div className="brand">{tituloExibido}</div>
             </>
           )}
+          <div className="top-bar-actions">
+            <button className="catalogo-cart-btn" onClick={() => setCarrinhoAberto(true)}>
+              <IconCarrinho className="icon-sm" />
+              {qtdCarrinho > 0 && <span className="catalogo-cart-count">{qtdCarrinho}</span>}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="main" style={{ paddingBottom: carrinho.length > 0 ? 84 : undefined }}>
-        {detalhe ? (
+      <div className="main">
+        {itemAberto ? (
           <TelaDetalheProduto
-            item={detalhe.item}
-            tamanho={detalhe.tamanho}
-            onTrocarTamanho={(t) => setDetalhe({ item: detalhe.item, tamanho: t })}
+            item={itemAberto}
+            tamanho={tamanhoAberto ?? (itemAberto.tipo === "variante" ? tamanhoPadrao(itemAberto) : null)}
+            onTrocarTamanho={trocarTamanhoDetalhe}
             whatsapp={catalogo.whatsapp}
             onAdicionar={adicionarAoCarrinho}
           />
@@ -323,7 +368,7 @@ export default function CatalogoPublicoPage() {
                       key={item.chave}
                       item={item}
                       maisVendido={maisVendidosChaves.has(item.chave)}
-                      onAbrir={(i, t) => setDetalhe({ item: i, tamanho: t })}
+                      onAbrir={abrirDetalhe}
                     />
                   ))}
                 </div>
@@ -339,7 +384,7 @@ export default function CatalogoPublicoPage() {
                       key={item.chave}
                       item={item}
                       maisVendido={maisVendidosChaves.has(item.chave)}
-                      onAbrir={(i, t) => setDetalhe({ item: i, tamanho: t })}
+                      onAbrir={abrirDetalhe}
                     />
                   ))}
                 </div>
@@ -348,15 +393,6 @@ export default function CatalogoPublicoPage() {
           </>
         )}
       </div>
-
-      {carrinho.length > 0 && !carrinhoAberto && (
-        <button className="catalogo-carrinho-bar" onClick={() => setCarrinhoAberto(true)}>
-          <span>
-            {qtdCarrinho} {qtdCarrinho === 1 ? "item" : "itens"} no carrinho
-          </span>
-          <span>{currency(totalCarrinho)}</span>
-        </button>
-      )}
 
       {carrinhoAberto && (
         <div className="sheet-overlay" onClick={() => setCarrinhoAberto(false)}>
@@ -377,7 +413,7 @@ export default function CatalogoPublicoPage() {
                   {carrinho.map((item) => (
                     <div key={item.chave} className="catalogo-carrinho-linha">
                       <span style={{ flex: 1, fontSize: "0.86rem" }}>{item.nome}</span>
-                      <span style={{ fontSize: "0.8rem", color: "var(--muted)", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: "0.8rem", color: "var(--cat-muted)", whiteSpace: "nowrap" }}>
                         {currency(item.preco)}
                       </span>
                       <div className="qty-control">
@@ -438,13 +474,12 @@ function CardCatalogo({
   onAbrir: (item: ItemCatalogo, tamanhoAtual: "17ml" | "100ml" | null) => void;
 }) {
   const padraoInicial = item.tipo === "variante" ? tamanhoPadrao(item) : null;
-  const [tamanhoSelecionado, setTamanhoSelecionado] = useState<"17ml" | "100ml" | null>(
-    padraoInicial
-  );
+  const [tamanhoSelecionado, setTamanhoSelecionado] = useState<"17ml" | "100ml" | null>(padraoInicial);
 
-  const atual = item.tipo === "variante"
-    ? item.tamanhos.find((t) => t.tamanho === tamanhoSelecionado)?.produto ?? item.tamanhos[0].produto
-    : item.produto;
+  const atual =
+    item.tipo === "variante"
+      ? item.tamanhos.find((t) => t.tamanho === tamanhoSelecionado)?.produto ?? item.tamanhos[0].produto
+      : item.produto;
   const nome = item.tipo === "variante" ? item.nome : item.produto.nome;
 
   return (
@@ -458,14 +493,10 @@ function CardCatalogo({
         {maisVendido && (
           <span className="badge badge-info catalogo-item-badge-left">Mais vendido</span>
         )}
-        {!atual.disponivel && (
-          <span className="badge badge-low catalogo-item-badge">Indisponível</span>
-        )}
       </div>
       <div className="catalogo-item-nome">{nome}</div>
       <Estrelas />
       <div className="catalogo-item-preco">{currency(atual.preco)}</div>
-      <p className="catalogo-item-desc">{atual.descricaoCurta || atual.familiaOlfativa}</p>
       {item.tipo === "variante" && (
         <div className="catalogo-size-toggle">
           {item.tamanhos.map((t) => (
@@ -543,17 +574,11 @@ function TelaDetalheProduto({
         </div>
       )}
 
-      <div style={{ fontSize: "1.3rem", fontWeight: 700, color: "var(--gold)", marginTop: 14 }}>
+      <div style={{ fontSize: "1.3rem", fontWeight: 700, color: "var(--cat-accent)", marginTop: 14 }}>
         {currency(produto.preco)}
       </div>
 
-      {!produto.disponivel && (
-        <span className="badge badge-low" style={{ marginTop: 8, display: "inline-block" }}>
-          Indisponível no momento, ainda dá pra pedir
-        </span>
-      )}
-
-      <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginTop: 14 }}>
+      <p style={{ color: "var(--cat-muted)", fontSize: "0.78rem", marginTop: 14 }}>
         {produto.familiaOlfativa}
       </p>
       <p className="sheet-descricao">{produto.descricaoCurta}</p>
