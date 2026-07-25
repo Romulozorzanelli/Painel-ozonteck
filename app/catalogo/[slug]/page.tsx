@@ -153,10 +153,10 @@ function ordenarPorPopularidade(itens: ItemCatalogo[]): ItemCatalogo[] {
 // ranking de mercado fixo em vez de ordem alfabética.
 function ordenarPerfumaria(itens: ItemCatalogo[]): ItemCatalogo[] {
   return [...itens].sort((a, b) => {
-    if (b.vendasTotais !== a.vendasTotais) return b.vendasTotais - a.vendasTotais;
     const rankA = rankingMercado(a);
     const rankB = rankingMercado(b);
     if (rankA !== rankB) return rankA - rankB;
+    if (b.vendasTotais !== a.vendasTotais) return b.vendasTotais - a.vendasTotais;
     return nomeItem(a).localeCompare(nomeItem(b), "pt-BR");
   });
 }
