@@ -942,6 +942,46 @@ export async function uploadFotoPerfil(blob: Blob): Promise<string> {
   return data.publicUrl;
 }
 
+/* ---------------------------- Materiais de apoio ---------------------------- */
+
+export type MaterialApoio = {
+  id: string;
+  titulo: string;
+  categoria: "catalogo_mes" | "apresentacao_negocio" | "imagens_linha" | "outros";
+  arquivoUrl: string;
+  arquivoNome: string;
+  tipoArquivo: string;
+  descricao: string;
+  tamanhoBytes: number | null;
+  criadoEm: string;
+};
+
+function materialApoioFromRow(row: any): MaterialApoio {
+  return {
+    id: row.id,
+    titulo: row.titulo,
+    categoria: row.categoria,
+    arquivoUrl: row.arquivo_url,
+    arquivoNome: row.arquivo_nome,
+    tipoArquivo: row.tipo_arquivo,
+    descricao: row.descricao ?? "",
+    tamanhoBytes: row.tamanho_bytes ?? null,
+    criadoEm: row.criado_em,
+  };
+}
+
+export async function getMateriaisApoio(): Promise<MaterialApoio[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("materiais_apoio")
+    .select("*")
+    .order("categoria", { ascending: true })
+    .order("criado_em", { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map(materialApoioFromRow);
+}
+
 /* ---------------------------- Catálogo (config do revendedor) ---------------------------- */
 
 function catalogoConfigFromRow(row: any): CatalogoConfig {
