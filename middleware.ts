@@ -16,6 +16,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
+  // Materiais de apoio: arquivos estáticos (pdf, imagens), baixados de
+  // dentro do app já autenticado, mas servidos como arquivo público comum.
+  if (path.startsWith("/materiais")) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
