@@ -47,6 +47,8 @@ import {
   verificarSlugDisponivel,
   CATEGORIAS_CATALOGO,
   type CatalogoConfig,
+  getMateriaisApoio,
+  type MaterialApoio,
 } from "@/lib/store";
 import { extrairItensNotaFiscal, casarComCatalogo, type ItemNotaFiscal } from "@/lib/nota-fiscal";
 import { extrairContatosPlanilha, type ContatoImportado } from "@/lib/planilha";
@@ -377,6 +379,25 @@ function IconCatalogo({ className }: { className?: string }) {
       <rect x="13.5" y="4" width="7" height="7" rx="1.4" />
       <rect x="3.5" y="14" width="7" height="7" rx="1.4" />
       <rect x="13.5" y="14" width="7" height="7" rx="1.4" />
+    </svg>
+  );
+}
+
+function IconMateriais({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 3.5h9l4 4V19a1.4 1.4 0 0 1-1.4 1.4H6A1.4 1.4 0 0 1 4.6 19V4.9A1.4 1.4 0 0 1 6 3.5Z" />
+      <path d="M14.5 3.5v4H19" />
+      <path d="M8 12.5h8" />
+      <path d="M8 16h5" />
     </svg>
   );
 }
@@ -4203,6 +4224,105 @@ function TabCatalogo() {
   );
 }
 
+const LABEL_CATEGORIA_MATERIAL: Record<MaterialApoio["categoria"], string> = {
+  catalogo_mes: "Catálogo do mês",
+  apresentacao_negocio: "Apresentação de negócio",
+  imagens_linha: "Imagens da linha",
+  outros: "Outros materiais",
+};
+
+function formatarTamanho(bytes: number | null): string {
+  if (!bytes) return "";
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1) return `${mb.toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function TabMateriais({ ativo }: { ativo: boolean }) {
+  const [materiais, setMateriais] = useState<MaterialApoio[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const jaAtivouAntes = useRef(false);
+
+  useEffect(() => {
+    getMateriaisApoio()
+      .then(setMateriais)
+      .finally(() => setCarregando(false));
+  }, []);
+
+  // Ao voltar pra essa aba, revalida por baixo dos panos, sem mostrar
+  // "Carregando" de novo.
+  useEffect(() => {
+    if (!ativo) return;
+    if (!jaAtivouAntes.current) {
+      jaAtivouAntes.current = true;
+      return;
+    }
+    getMateriaisApoio().then(setMateriais);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativo]);
+
+  const porCategoria = useMemo(() => {
+    const mapa = new Map<MaterialApoio["categoria"], MaterialApoio[]>();
+    for (const m of materiais) {
+      const lista = mapa.get(m.categoria) ?? [];
+      lista.push(m);
+      mapa.set(m.categoria, lista);
+    }
+    return mapa;
+  }, [materiais]);
+
+  if (carregando) {
+    return <div className="empty-state">Carregando materiais...</div>;
+  }
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Materiais de apoio</h1>
+        <p>Catálogo oficial, apresentação do negócio e imagens da linha, prontos pra baixar.</p>
+      </div>
+
+      {materiais.length === 0 && (
+        <div className="empty-state">
+          <div className="title">Nenhum material ainda</div>
+          Assim que tiver algo novo, aparece aqui.
+        </div>
+      )}
+
+      {Array.from(porCategoria.entries()).map(([categoria, itens]) => (
+        <div key={categoria} style={{ marginBottom: 22 }}>
+          <h2 className="panel-title">{LABEL_CATEGORIA_MATERIAL[categoria]}</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {itens.map((m) => (
+              <div key={m.id} className="row-card">
+                <div className="row-card-media-placeholder">
+                  {m.tipoArquivo.toUpperCase()}
+                </div>
+                <div className="row-card-body">
+                  <div className="row-card-title">{m.titulo}</div>
+                  <div className="row-card-sub">
+                    {formatarTamanho(m.tamanhoBytes)}
+                    {m.descricao ? ` • ${m.descricao}` : ""}
+                  </div>
+                </div>
+                <a
+                  className="btn btn-ghost btn-sm"
+                  href={m.arquivoUrl}
+                  download={m.arquivoNome}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Baixar
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function EditorTemplates() {
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
@@ -4451,6 +4571,7 @@ const TABS_MENU = [
   { id: "financeiro", label: "Financeiro", Icon: IconFinanceiro },
   { id: "campanha", label: "Campanha", Icon: IconCampanha },
   { id: "catalogo", label: "Catálogo", Icon: IconCatalogo },
+  { id: "materiais", label: "Materiais", Icon: IconMateriais },
   { id: "perfil", label: "Perfil", Icon: IconPerfil },
 ] as const;
 
@@ -4620,6 +4741,11 @@ function PainelShell() {
         {abasVisitadas.has("catalogo") && (
           <div style={{ display: aba === "catalogo" ? "block" : "none" }}>
             <TabCatalogo />
+          </div>
+        )}
+        {abasVisitadas.has("materiais") && (
+          <div style={{ display: aba === "materiais" ? "block" : "none" }}>
+            <TabMateriais ativo={aba === "materiais"} />
           </div>
         )}
         {abasVisitadas.has("perfil") && (
