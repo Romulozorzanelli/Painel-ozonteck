@@ -136,7 +136,9 @@ function produtoFromRow(row: any): Produto {
     ativo: row.ativo,
     categoria: row.categoria ?? "",
     imagemReferencia: row.imagem_referencia
-      ? `https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/reference-fotos/${row.imagem_referencia}`
+      ? row.imagem_referencia.startsWith("http") || row.imagem_referencia.startsWith("/")
+        ? row.imagem_referencia
+        : `https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/reference-fotos/${row.imagem_referencia}`
       : null,
     referenciaNome: row.referencia_nome ?? null,
   };
