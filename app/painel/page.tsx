@@ -1651,6 +1651,36 @@ function TabEstoque({
               </p>
             )}
 
+            {detalhes.imagemReferencia && (
+              <div style={{ marginBottom: 16 }}>
+                <span
+                  className="badge"
+                  style={{ marginBottom: 8, display: "inline-block" }}
+                >
+                  Referência (uso interno)
+                </span>
+                <div
+                  style={{
+                    background: "#ffffff",
+                    border: "1px solid var(--border)",
+                    borderRadius: 10,
+                    padding: 10,
+                    display: "flex",
+                    justifyContent: "center",
+                  }}
+                >
+                  <img
+                    src={detalhes.imagemReferencia}
+                    alt="Referência do perfume importado"
+                    style={{ maxHeight: 140, maxWidth: "100%", objectFit: "contain" }}
+                  />
+                </div>
+                <p style={{ color: "var(--muted)", fontSize: "0.72rem", marginTop: 6 }}>
+                  Só pra consulta sua. Nunca aparece no catálogo público nem pro cliente.
+                </p>
+              </div>
+            )}
+
             <button
               className="btn btn-primary btn-block"
               onClick={() => abrirAjuste(detalhes)}
