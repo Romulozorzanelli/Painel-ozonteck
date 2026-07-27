@@ -684,6 +684,70 @@ button {
   height: 100%;
   object-fit: contain;
 }
+.stock-detail-swipe {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  gap: 8px;
+  border-radius: var(--radius);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.stock-detail-swipe::-webkit-scrollbar {
+  display: none;
+}
+.stock-detail-slide {
+  position: relative;
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  aspect-ratio: 4 / 3;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.stock-detail-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.stock-detail-slide.eh-referencia {
+  background: #ffffff;
+}
+.stock-detail-slide-label {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(6, 10, 23, 0.78);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stock-detail-dots {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin: 8px 0 4px;
+}
+.stock-detail-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+}
+.stock-detail-dot.ativo {
+  background: var(--gold);
+}
 .sheet-header {
   display: flex;
   align-items: flex-start;
