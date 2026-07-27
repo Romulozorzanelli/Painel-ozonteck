@@ -22,6 +22,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
+  // Fotos de referência de perfume que não vieram do bucket do Supabase
+  // (mesma lógica do /materiais: arquivo estático público, usado só dentro
+  // do app logado).
+  if (path.startsWith("/referencias")) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
