@@ -4478,21 +4478,21 @@ const MODELOS_REDE: ModeloRede[] = [
     titulo: "Anúncio geral (novo na área)",
     publico: "Pra quem nunca trabalhou com perfume nem com nenhum produto da linha.",
     mensagem:
-      "Oi {nome}, tudo bem? Quero te contar uma novidade: comecei a trabalhar com a Ozonteck, marca de perfumaria, linha capilar e bem-estar. Os produtos são de excelente qualidade, fiquei surpresa de verdade, principalmente com a linha de perfumes. Vamos marcar uma visita essa semana pra eu te mostrar de perto?",
+      "Oi, tudo bem? Quero te contar uma novidade: comecei a trabalhar com a Ozonteck, marca de perfumaria, linha capilar e bem-estar. Os produtos são de excelente qualidade, fiquei surpresa de verdade, principalmente com a linha de perfumes. Vamos marcar uma visita essa semana pra eu te mostrar de perto?",
   },
   {
     id: "ja-trabalha-com-perfume",
     titulo: "Já trabalha com perfumaria",
     publico: "Pra quem já vende perfume ou produtos parecidos, de outra marca.",
     mensagem:
-      "Oi {nome}, tudo bem? Comecei a trabalhar com uma linha nova, a Ozonteck. Fábrica própria em Guarapari, no Espírito Santo, e a qualidade me surpreendeu de verdade, principalmente a perfumaria. Vamos marcar uma visita pra eu te mostrar os produtos?",
+      "Oi, tudo bem? Comecei a trabalhar com uma linha nova, a Ozonteck. Fábrica própria em Guarapari, no Espírito Santo, e a qualidade me surpreendeu de verdade, principalmente a perfumaria. Vamos marcar uma visita pra eu te mostrar os produtos?",
   },
   {
     id: "convite-multinivel",
     titulo: "Convite pra conhecer a empresa",
     publico: "Pra quem já faz multinível e entende de duplicação de rede.",
     mensagem:
-      "Oi {nome}, tudo bem? Comecei um projeto novo e queria te convidar pra conhecer a empresa por trás dele, a Ozonteck. Tenho um horário livre terça ou quarta, qual funciona melhor pra você?",
+      "Oi, tudo bem? Comecei um projeto novo e queria te convidar pra conhecer a empresa por trás dele, a Ozonteck. Tenho um horário livre terça ou quarta, qual funciona melhor pra você?",
   },
 ];
 
@@ -4509,7 +4509,10 @@ function TabRede() {
     <div>
       <div className="page-header">
         <h1>Rede</h1>
-        <p>Modelos prontos pra convidar contatos, separados por quem você está abordando.</p>
+        <p>
+          Modelos prontos pra convidar contatos. Copie, cole no WhatsApp e adicione o nome da
+          pessoa no início, se quiser (o WhatsApp não troca isso sozinho).
+        </p>
       </div>
 
       {MODELOS_REDE.map((modelo) => (
