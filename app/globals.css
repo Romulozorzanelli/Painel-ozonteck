@@ -604,7 +604,7 @@ button {
 .stock-card-media {
   position: relative;
   aspect-ratio: 1 / 1;
-  background: var(--panel-2);
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -613,7 +613,7 @@ button {
 .stock-card-media img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 .stock-card-placeholder {
   font-size: 1.8rem;
@@ -671,7 +671,7 @@ button {
 }
 .stock-detail-media {
   aspect-ratio: 4 / 3;
-  background: var(--panel-2);
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   display: flex;
@@ -701,7 +701,7 @@ button {
   flex: 0 0 100%;
   scroll-snap-align: center;
   aspect-ratio: 4 / 3;
-  background: var(--panel-2);
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   display: flex;
@@ -713,9 +713,6 @@ button {
   width: 100%;
   height: 100%;
   object-fit: contain;
-}
-.stock-detail-slide.eh-referencia {
-  background: #ffffff;
 }
 .stock-detail-slide-label {
   position: absolute;
