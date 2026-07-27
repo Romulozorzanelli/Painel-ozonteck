@@ -421,6 +421,27 @@ function IconTemplates({ className }: { className?: string }) {
   );
 }
 
+function IconRede({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="4.5" r="2" />
+      <circle cx="5" cy="18" r="2" />
+      <circle cx="19" cy="18" r="2" />
+      <path d="M12 6.5v5" />
+      <path d="M12 11.5 6.3 16.5" />
+      <path d="M12 11.5l5.7 5" />
+    </svg>
+  );
+}
+
 function IconMenu({ className }: { className?: string }) {
   return (
     <svg
@@ -4444,6 +4465,81 @@ function TabTemplates() {
   );
 }
 
+type ModeloRede = {
+  id: string;
+  titulo: string;
+  publico: string;
+  mensagem: string;
+};
+
+const MODELOS_REDE: ModeloRede[] = [
+  {
+    id: "novo-na-area",
+    titulo: "Anúncio geral (novo na área)",
+    publico: "Pra quem nunca trabalhou com perfume nem com nenhum produto da linha.",
+    mensagem:
+      "Oi {nome}, tudo bem? Quero te contar uma novidade: comecei a trabalhar com a Ozonteck, marca de perfumaria, linha capilar e bem-estar. Os produtos são de excelente qualidade, fiquei surpresa de verdade, principalmente com a linha de perfumes. Vamos marcar uma visita essa semana pra eu te mostrar de perto?",
+  },
+  {
+    id: "ja-trabalha-com-perfume",
+    titulo: "Já trabalha com perfumaria",
+    publico: "Pra quem já vende perfume ou produtos parecidos, de outra marca.",
+    mensagem:
+      "Oi {nome}, tudo bem? Comecei a trabalhar com uma linha nova, a Ozonteck. Fábrica própria em Guarapari, no Espírito Santo, e a qualidade me surpreendeu de verdade, principalmente a perfumaria. Vamos marcar uma visita pra eu te mostrar os produtos?",
+  },
+  {
+    id: "convite-multinivel",
+    titulo: "Convite pra conhecer a empresa",
+    publico: "Pra quem já faz multinível e entende de duplicação de rede.",
+    mensagem:
+      "Oi {nome}, tudo bem? Comecei um projeto novo e queria te convidar pra conhecer a empresa por trás dele, a Ozonteck. Tenho um horário livre terça ou quarta, qual funciona melhor pra você?",
+  },
+];
+
+function TabRede() {
+  const [copiadoId, setCopiadoId] = useState<string | null>(null);
+
+  function copiar(modelo: ModeloRede) {
+    navigator.clipboard.writeText(modelo.mensagem);
+    setCopiadoId(modelo.id);
+    setTimeout(() => setCopiadoId(null), 2000);
+  }
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Rede</h1>
+        <p>Modelos prontos pra convidar contatos, separados por quem você está abordando.</p>
+      </div>
+
+      {MODELOS_REDE.map((modelo) => (
+        <div key={modelo.id} className="panel-card" style={{ marginBottom: 14 }}>
+          <h2 className="panel-title">{modelo.titulo}</h2>
+          <p style={{ color: "var(--muted)", fontSize: "0.8rem", marginBottom: 10 }}>
+            {modelo.publico}
+          </p>
+          <p
+            style={{
+              background: "var(--panel-2)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+              padding: 12,
+              fontSize: "0.86rem",
+              lineHeight: 1.5,
+              marginBottom: 10,
+            }}
+          >
+            {modelo.mensagem}
+          </p>
+          <button className="btn btn-ghost btn-sm" onClick={() => copiar(modelo)}>
+            {copiadoId === modelo.id ? "Copiado!" : "Copiar mensagem"}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ---------------------------- Cadastro (onboarding) ---------------------------- */
 
 function TelaCadastro({
@@ -4593,6 +4689,7 @@ const TABS_MENU = [
   { id: "catalogo", label: "Catálogo", Icon: IconCatalogo },
   { id: "materiais", label: "Materiais", Icon: IconMateriais },
   { id: "templates", label: "Templates", Icon: IconTemplates },
+  { id: "rede", label: "Rede", Icon: IconRede },
   { id: "perfil", label: "Perfil", Icon: IconPerfil },
 ] as const;
 
@@ -4772,6 +4869,11 @@ function PainelShell() {
         {abasVisitadas.has("templates") && (
           <div style={{ display: aba === "templates" ? "block" : "none" }}>
             <TabTemplates />
+          </div>
+        )}
+        {abasVisitadas.has("rede") && (
+          <div style={{ display: aba === "rede" ? "block" : "none" }}>
+            <TabRede />
           </div>
         )}
         {abasVisitadas.has("perfil") && (
