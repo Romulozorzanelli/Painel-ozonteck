@@ -14,6 +14,7 @@ export type Produto = {
   ativo: boolean;
   categoria: string;
   imagemReferencia: string | null;
+  referenciaNome: string | null;
 };
 
 // Categorias fixas usadas pra classificar o catálogo (campo produtos.categoria)
@@ -137,6 +138,7 @@ function produtoFromRow(row: any): Produto {
     imagemReferencia: row.imagem_referencia
       ? `https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/reference-fotos/${row.imagem_referencia}`
       : null,
+    referenciaNome: row.referencia_nome ?? null,
   };
 }
 
