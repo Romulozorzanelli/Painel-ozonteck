@@ -1246,6 +1246,7 @@ function TabEstoque({
   const [busca, setBusca] = useState("");
   const [ocultarZerados, setOcultarZerados] = useState(true);
   const [detalhes, setDetalhes] = useState<Produto | null>(null);
+  const [slideDetalhe, setSlideDetalhe] = useState(0);
   const [ajuste, setAjuste] = useState<Produto | null>(null);
   const [ajusteValor, setAjusteValor] = useState(0);
   const [entradaAberta, setEntradaAberta] = useState(false);
@@ -1550,7 +1551,10 @@ function TabEstoque({
                 <div
                   key={p.id}
                   className="stock-card"
-                  onClick={() => setDetalhes(p)}
+                  onClick={() => {
+                    setDetalhes(p);
+                    setSlideDetalhe(0);
+                  }}
                 >
                   <div className="stock-card-media">
                     {p.imagem ? (
@@ -1596,15 +1600,55 @@ function TabEstoque({
               </button>
             </div>
 
-            <div className="stock-detail-media">
-              {detalhes.imagem ? (
-                <img src={detalhes.imagem} alt={detalhes.nome} decoding="async" />
-              ) : (
-                <span className="stock-card-placeholder">
-                  {detalhes.nome.slice(0, 1).toUpperCase()}
-                </span>
+            <div
+              className="stock-detail-swipe"
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                const indice = Math.round(el.scrollLeft / el.clientWidth);
+                setSlideDetalhe(indice);
+              }}
+            >
+              <div className="stock-detail-slide">
+                {detalhes.imagem ? (
+                  <img src={detalhes.imagem} alt={detalhes.nome} decoding="async" />
+                ) : (
+                  <span className="stock-card-placeholder">
+                    {detalhes.nome.slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+                <span className="stock-detail-slide-label">Ozonteck</span>
+              </div>
+              {detalhes.imagemReferencia && (
+                <div className="stock-detail-slide eh-referencia">
+                  <img
+                    src={detalhes.imagemReferencia}
+                    alt={detalhes.referenciaNome ?? "Referência do perfume importado"}
+                    decoding="async"
+                  />
+                  <span className="stock-detail-slide-label">
+                    Referência: {detalhes.referenciaNome ?? "não identificada"}
+                  </span>
+                </div>
               )}
             </div>
+            {detalhes.imagemReferencia && (
+              <>
+                <div className="stock-detail-dots">
+                  <span className={"stock-detail-dot " + (slideDetalhe === 0 ? "ativo" : "")} />
+                  <span className={"stock-detail-dot " + (slideDetalhe === 1 ? "ativo" : "")} />
+                </div>
+                <p
+                  style={{
+                    color: "var(--muted)",
+                    fontSize: "0.7rem",
+                    textAlign: "center",
+                    marginBottom: 10,
+                  }}
+                >
+                  Arraste pra o lado pra ver a referência. Só aparece aqui, uso interno.
+                </p>
+              </>
+            )}
 
             <div
               style={{
@@ -1649,36 +1693,6 @@ function TabEstoque({
               >
                 {detalhes.descricaoCurta}
               </p>
-            )}
-
-            {detalhes.imagemReferencia && (
-              <div style={{ marginBottom: 16 }}>
-                <span
-                  className="badge"
-                  style={{ marginBottom: 8, display: "inline-block" }}
-                >
-                  Referência (uso interno)
-                </span>
-                <div
-                  style={{
-                    background: "#ffffff",
-                    border: "1px solid var(--border)",
-                    borderRadius: 10,
-                    padding: 10,
-                    display: "flex",
-                    justifyContent: "center",
-                  }}
-                >
-                  <img
-                    src={detalhes.imagemReferencia}
-                    alt="Referência do perfume importado"
-                    style={{ maxHeight: 140, maxWidth: "100%", objectFit: "contain" }}
-                  />
-                </div>
-                <p style={{ color: "var(--muted)", fontSize: "0.72rem", marginTop: 6 }}>
-                  Só pra consulta sua. Nunca aparece no catálogo público nem pro cliente.
-                </p>
-              </div>
             )}
 
             <button
