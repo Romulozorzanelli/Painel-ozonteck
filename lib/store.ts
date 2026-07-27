@@ -13,6 +13,7 @@ export type Produto = {
   estoqueMinimo: number;
   ativo: boolean;
   categoria: string;
+  imagemReferencia: string | null;
 };
 
 // Categorias fixas usadas pra classificar o catálogo (campo produtos.categoria)
@@ -133,6 +134,9 @@ function produtoFromRow(row: any): Produto {
     estoqueMinimo: row.estoque_minimo,
     ativo: row.ativo,
     categoria: row.categoria ?? "",
+    imagemReferencia: row.imagem_referencia
+      ? `https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/reference-fotos/${row.imagem_referencia}`
+      : null,
   };
 }
 
