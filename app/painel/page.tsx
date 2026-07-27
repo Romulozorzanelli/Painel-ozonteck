@@ -402,6 +402,25 @@ function IconMateriais({ className }: { className?: string }) {
   );
 }
 
+function IconTemplates({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4.5 3.5h9l4 4V15.5a1.2 1.2 0 0 1-1.2 1.2H4.5Z" opacity="0.45" />
+      <path d="M2.5 6.5h9l4 4V20a1.2 1.2 0 0 1-1.2 1.2H3.7A1.2 1.2 0 0 1 2.5 20Z" />
+      <path d="M6 12.5h6" />
+      <path d="M6 15.5h4" />
+    </svg>
+  );
+}
+
 function IconMenu({ className }: { className?: string }) {
   return (
     <svg
@@ -3920,8 +3939,6 @@ function TabPerfil() {
       >
         {salvando ? "Salvando..." : "Salvar alterações"}
       </button>
-
-      <EditorTemplates />
     </div>
   );
 }
@@ -4323,7 +4340,7 @@ function TabMateriais({ ativo }: { ativo: boolean }) {
   );
 }
 
-function EditorTemplates() {
+function TabTemplates() {
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
   const [tipoSelecionado, setTipoSelecionado] = useState<TipoTarefa>("novo_cadastro");
@@ -4370,55 +4387,58 @@ function EditorTemplates() {
   }
 
   if (carregando) {
-    return (
-      <div className="panel-card" style={{ marginTop: 16 }}>
-        <div className="empty-state">Carregando templates...</div>
-      </div>
-    );
+    return <div className="empty-state">Carregando templates...</div>;
   }
 
   const customizado = Boolean(templates[tipoSelecionado]);
 
   return (
-    <div className="panel-card" style={{ marginTop: 16 }}>
-      <h2 className="panel-title">Templates de mensagem</h2>
-      <p style={{ color: "var(--muted)", fontSize: "0.82rem", marginBottom: 12 }}>
-        Personalize o texto sugerido de cada tipo de tarefa. Use {"{nome}"} e{" "}
-        {"{produto}"} que o sistema substitui automaticamente ao enviar.
-      </p>
-      <div className="form-row">
-        <label>Tipo de mensagem</label>
-        <select
-          className="select-input"
-          value={tipoSelecionado}
-          onChange={(e) => setTipoSelecionado(e.target.value as TipoTarefa)}
-        >
-          {TIPOS_TAREFA_MENSAGEM.map((t) => (
-            <option key={t.tipo} value={t.tipo}>
-              {t.label}
-              {templates[t.tipo] ? " • personalizado" : ""}
-            </option>
-          ))}
-        </select>
+    <div>
+      <div className="page-header">
+        <h1>Templates</h1>
+        <p>Mensagens editáveis do app: tarefas automáticas, e no futuro, respostas rápidas.</p>
       </div>
-      <div className="form-row">
-        <label>Mensagem</label>
-        <textarea
-          className="textarea-input"
-          rows={5}
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-        />
-      </div>
-      <div className="row-card-actions">
-        <button className="btn btn-primary" disabled={salvando} onClick={salvar}>
-          {salvando ? "Salvando..." : "Salvar"}
-        </button>
-        {customizado && (
-          <button className="btn btn-ghost" disabled={salvando} onClick={restaurar}>
-            Restaurar padrão
+
+      <div className="panel-card">
+        <h2 className="panel-title">Mensagens de tarefa</h2>
+        <p style={{ color: "var(--muted)", fontSize: "0.82rem", marginBottom: 12 }}>
+          Personalize o texto sugerido de cada tipo de tarefa. Use {"{nome}"} e{" "}
+          {"{produto}"} que o sistema substitui automaticamente ao enviar.
+        </p>
+        <div className="form-row">
+          <label>Tipo de mensagem</label>
+          <select
+            className="select-input"
+            value={tipoSelecionado}
+            onChange={(e) => setTipoSelecionado(e.target.value as TipoTarefa)}
+          >
+            {TIPOS_TAREFA_MENSAGEM.map((t) => (
+              <option key={t.tipo} value={t.tipo}>
+                {t.label}
+                {templates[t.tipo] ? " • personalizado" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-row">
+          <label>Mensagem</label>
+          <textarea
+            className="textarea-input"
+            rows={5}
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+          />
+        </div>
+        <div className="row-card-actions">
+          <button className="btn btn-primary" disabled={salvando} onClick={salvar}>
+            {salvando ? "Salvando..." : "Salvar"}
           </button>
-        )}
+          {customizado && (
+            <button className="btn btn-ghost" disabled={salvando} onClick={restaurar}>
+              Restaurar padrão
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -4572,6 +4592,7 @@ const TABS_MENU = [
   { id: "campanha", label: "Campanha", Icon: IconCampanha },
   { id: "catalogo", label: "Catálogo", Icon: IconCatalogo },
   { id: "materiais", label: "Materiais", Icon: IconMateriais },
+  { id: "templates", label: "Templates", Icon: IconTemplates },
   { id: "perfil", label: "Perfil", Icon: IconPerfil },
 ] as const;
 
@@ -4746,6 +4767,11 @@ function PainelShell() {
         {abasVisitadas.has("materiais") && (
           <div style={{ display: aba === "materiais" ? "block" : "none" }}>
             <TabMateriais ativo={aba === "materiais"} />
+          </div>
+        )}
+        {abasVisitadas.has("templates") && (
+          <div style={{ display: aba === "templates" ? "block" : "none" }}>
+            <TabTemplates />
           </div>
         )}
         {abasVisitadas.has("perfil") && (
