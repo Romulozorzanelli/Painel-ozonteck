@@ -1251,6 +1251,9 @@ function TabEstoque({
   const [ajuste, setAjuste] = useState<Produto | null>(null);
   const [ajusteValor, setAjusteValor] = useState(0);
   const [entradaAberta, setEntradaAberta] = useState(false);
+  const [etapaEntrada, setEtapaEntrada] = useState<"metodo" | "manual" | "importar">("metodo");
+  const [resolvendoItem, setResolvendoItem] = useState<number | null>(null);
+  const [buscaResolucao, setBuscaResolucao] = useState("");
   const [buscaEntrada, setBuscaEntrada] = useState("");
   const [itensEntrada, setItensEntrada] = useState<
     { produto: Produto; quantidade: number }[]
@@ -1327,6 +1330,12 @@ function TabEstoque({
     return produtos.filter((p) => p.nome.toLowerCase().includes(termo));
   }, [produtos, buscaEntrada]);
 
+  const resultadosResolucao = useMemo(() => {
+    const termo = buscaResolucao.trim().toLowerCase();
+    if (!termo) return produtos;
+    return produtos.filter((p) => p.nome.toLowerCase().includes(termo));
+  }, [produtos, buscaResolucao]);
+
   const totalUnidades = produtos.reduce((s, p) => s + p.estoque, 0);
   const produtosComEstoque = produtos.filter((p) => p.estoque > 0).length;
 
@@ -1360,10 +1369,13 @@ function TabEstoque({
 
   function fecharEntrada() {
     setEntradaAberta(false);
+    setEtapaEntrada("metodo");
     setBuscaEntrada("");
     setItensEntrada([]);
     setNaoEncontrados([]);
     setErroImportacao("");
+    setResolvendoItem(null);
+    setBuscaResolucao("");
   }
 
   async function importarNotaFiscal(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1419,6 +1431,25 @@ function TabEstoque({
       }
       return [...itens, { produto: p, quantidade: 1 }];
     });
+  }
+
+  function resolverNaoEncontrado(idx: number, produto: Produto) {
+    const item = naoEncontrados[idx];
+    if (!item) return;
+    setItensEntrada((itens) => {
+      const existente = itens.find((i) => i.produto.id === produto.id);
+      if (existente) {
+        return itens.map((i) =>
+          i.produto.id === produto.id
+            ? { ...i, quantidade: i.quantidade + item.quantidade }
+            : i
+        );
+      }
+      return [...itens, { produto, quantidade: item.quantidade }];
+    });
+    setNaoEncontrados((atual) => atual.filter((_, i) => i !== idx));
+    setResolvendoItem(null);
+    setBuscaResolucao("");
   }
 
   function atualizarQtdEntrada(id: string, quantidade: number) {
@@ -1483,7 +1514,10 @@ function TabEstoque({
           <h1>Estoque</h1>
           <button
             className="btn btn-primary btn-sm"
-            onClick={() => setEntradaAberta(true)}
+            onClick={() => {
+              setEntradaAberta(true);
+              setEtapaEntrada("metodo");
+            }}
             disabled={salvandoEntrada}
           >
             {salvandoEntrada ? "Salvando..." : "Entrada"}
@@ -1811,205 +1845,364 @@ function TabEstoque({
           className="sheet-overlay"
           onClick={importandoNota ? undefined : fecharEntrada}
         >
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet sheet-full" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-handle" />
-            <h2>Entrada de estoque</h2>
-
-            <label
-              className="btn btn-ghost btn-block"
-              style={{
-                cursor: importandoNota ? "not-allowed" : "pointer",
-                opacity: importandoNota ? 0.6 : 1,
-                marginBottom: importandoNota ? 8 : 12,
-              }}
-            >
-              {importandoNota ? "Lendo nota fiscal..." : "📄 Importar nota fiscal (PDF)"}
-              <input
-                type="file"
-                accept="application/pdf"
-                onChange={importarNotaFiscal}
-                disabled={importandoNota}
-                style={{ display: "none" }}
-              />
-            </label>
-            {importandoNota && (
-              <div style={{ marginBottom: 12 }}>
-                <div
-                  style={{
-                    height: 6,
-                    borderRadius: 999,
-                    background: "var(--panel-2)",
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      height: "100%",
-                      borderRadius: 999,
-                      background: "var(--gold)",
-                      width:
-                        progressoNota && progressoNota.total > 0
-                          ? `${Math.round((progressoNota.atual / progressoNota.total) * 100)}%`
-                          : "12%",
-                      transition: "width 0.2s ease",
-                    }}
-                  />
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.74rem",
-                    color: "var(--muted)",
-                    marginTop: 4,
-                    textAlign: "center",
-                  }}
-                >
-                  {progressoNota && progressoNota.total > 0
-                    ? `Lendo página ${progressoNota.atual} de ${progressoNota.total}... não feche essa tela.`
-                    : "Abrindo o PDF... não feche essa tela."}
-                </div>
-              </div>
-            )}
-            {erroImportacao && (
-              <div className="login-error" style={{ marginBottom: 12 }}>
-                {erroImportacao}
-              </div>
-            )}
-            {naoEncontrados.length > 0 && (
-              <div
-                style={{
-                  background: "var(--panel-2)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 10,
-                  padding: "10px 12px",
-                  marginBottom: 12,
-                }}
-              >
-                <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: 6 }}>
-                  Não encontrados no catálogo — adicione manualmente:
-                </div>
-                {naoEncontrados.map((i, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      fontSize: "0.8rem",
-                      color: "var(--muted)",
-                      padding: "3px 0",
-                    }}
-                  >
-                    <span>{i.descricao}</span>
-                    <span>{i.quantidade} un.</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <input
-              className="search-input"
-              placeholder="Digite o nome do perfume..."
-              value={buscaEntrada}
-              onChange={(e) => setBuscaEntrada(e.target.value)}
-              style={{ marginBottom: 12 }}
-            />
-            <div
-              style={{
-                display: "grid",
-                gap: 6,
-                maxHeight: 200,
-                overflowY: "auto",
-                marginBottom: 16,
-              }}
-            >
-              {resultadosEntrada.length === 0 ? (
-                <div className="empty-state" style={{ padding: "20px 0" }}>
-                  Nenhum produto encontrado.
-                </div>
-              ) : (
-                resultadosEntrada.map((p) => (
-                  <div
-                    key={p.id}
-                    className="cart-line"
-                    style={{ cursor: "pointer" }}
-                    onClick={() => adicionarItemEntrada(p)}
-                  >
-                    <span>{p.nome}</span>
-                    <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-                      {p.estoque} em estoque
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {itensEntrada.length > 0 && (
-              <>
-                <div className="panel-title" style={{ fontSize: "0.85rem" }}>
-                  Produtos nesta entrada ({itensEntrada.length})
-                </div>
-                <div style={{ display: "grid", gap: 8, marginBottom: 8 }}>
-                  {itensEntrada.map((item) => (
-                    <div
-                      key={item.produto.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 10,
-                        paddingBottom: 8,
-                        borderBottom: "1px solid var(--border)",
-                      }}
-                    >
-                      <span style={{ flex: 1, fontSize: "0.86rem" }}>
-                        {item.produto.nome}
-                      </span>
-                      <div className="qty-control">
-                        <button
-                          onClick={() =>
-                            atualizarQtdEntrada(item.produto.id, item.quantidade - 1)
-                          }
-                        >
-                          −
-                        </button>
-                        <span style={{ minWidth: 20, textAlign: "center" }}>
-                          {item.quantidade}
-                        </span>
-                        <button
-                          onClick={() =>
-                            atualizarQtdEntrada(item.produto.id, item.quantidade + 1)
-                          }
-                        >
-                          +
-                        </button>
-                      </div>
-                      <button
-                        className="btn btn-ghost btn-icon"
-                        onClick={() => removerItemEntrada(item.produto.id)}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <div className="form-actions">
+            <div className="sheet-header">
+              <h2>
+                {etapaEntrada === "metodo" && "Entrada de estoque"}
+                {etapaEntrada === "manual" && "Adicionar manualmente"}
+                {etapaEntrada === "importar" && "Importar nota fiscal"}
+              </h2>
               <button
-                className="btn btn-ghost"
+                className="sheet-close"
                 onClick={fecharEntrada}
                 disabled={importandoNota}
               >
-                Cancelar
+                ×
               </button>
-              <button
-                className="btn btn-primary"
-                disabled={itensEntrada.length === 0 || salvandoEntrada}
-                onClick={confirmarEntrada}
-              >
-                Confirmar entrada (
-                {itensEntrada.reduce((s, i) => s + i.quantidade, 0)} un.)
-              </button>
+            </div>
+
+            <div className="sheet-full-body">
+              {etapaEntrada === "metodo" && (
+                <>
+                  <button
+                    type="button"
+                    className="metodo-card"
+                    onClick={() => setEtapaEntrada("manual")}
+                  >
+                    <span className="metodo-card-icone">📝</span>
+                    <span>
+                      <div className="metodo-card-titulo">Adicionar manualmente</div>
+                      <div className="metodo-card-subtitulo">
+                        Navegue pelo catálogo e adicione item por item
+                      </div>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="metodo-card"
+                    onClick={() => setEtapaEntrada("importar")}
+                  >
+                    <span className="metodo-card-icone">📄</span>
+                    <span>
+                      <div className="metodo-card-titulo">Importar nota fiscal (PDF)</div>
+                      <div className="metodo-card-subtitulo">
+                        Leio a nota e já reconheço os produtos automaticamente
+                      </div>
+                    </span>
+                  </button>
+                </>
+              )}
+
+              {etapaEntrada === "manual" && (
+                <>
+                  <input
+                    className="search-input"
+                    placeholder="Digite o nome do perfume..."
+                    value={buscaEntrada}
+                    onChange={(e) => setBuscaEntrada(e.target.value)}
+                    style={{ marginBottom: 12 }}
+                  />
+                  <div style={{ display: "grid", gap: 6, marginBottom: 16 }}>
+                    {resultadosEntrada.length === 0 ? (
+                      <div className="empty-state" style={{ padding: "20px 0" }}>
+                        Nenhum produto encontrado.
+                      </div>
+                    ) : (
+                      resultadosEntrada.map((p) => (
+                        <div
+                          key={p.id}
+                          className="cart-line"
+                          style={{ cursor: "pointer" }}
+                          onClick={() => adicionarItemEntrada(p)}
+                        >
+                          <span>{p.nome}</span>
+                          <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+                            {p.estoque} em estoque
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {itensEntrada.length > 0 && (
+                    <>
+                      <div className="entrada-secao-titulo">
+                        Produtos nesta entrada ({itensEntrada.length})
+                      </div>
+                      <div style={{ display: "grid", gap: 8, marginBottom: 8 }}>
+                        {itensEntrada.map((item) => (
+                          <div
+                            key={item.produto.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 10,
+                              paddingBottom: 8,
+                              borderBottom: "1px solid var(--border)",
+                            }}
+                          >
+                            <span style={{ flex: 1, fontSize: "0.86rem" }}>
+                              {item.produto.nome}
+                            </span>
+                            <div className="qty-control">
+                              <button
+                                onClick={() =>
+                                  atualizarQtdEntrada(item.produto.id, item.quantidade - 1)
+                                }
+                              >
+                                −
+                              </button>
+                              <span style={{ minWidth: 20, textAlign: "center" }}>
+                                {item.quantidade}
+                              </span>
+                              <button
+                                onClick={() =>
+                                  atualizarQtdEntrada(item.produto.id, item.quantidade + 1)
+                                }
+                              >
+                                +
+                              </button>
+                            </div>
+                            <button
+                              className="btn btn-ghost btn-icon"
+                              onClick={() => removerItemEntrada(item.produto.id)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+
+              {etapaEntrada === "importar" && (
+                <>
+                  <label
+                    className="btn btn-ghost btn-block"
+                    style={{
+                      cursor: importandoNota ? "not-allowed" : "pointer",
+                      opacity: importandoNota ? 0.6 : 1,
+                      marginBottom: importandoNota ? 8 : 12,
+                    }}
+                  >
+                    {importandoNota ? "Lendo nota fiscal..." : "📄 Selecionar PDF da nota fiscal"}
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={importarNotaFiscal}
+                      disabled={importandoNota}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                  {importandoNota && (
+                    <div style={{ marginBottom: 12 }}>
+                      <div
+                        style={{
+                          height: 6,
+                          borderRadius: 999,
+                          background: "var(--panel-2)",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: "100%",
+                            borderRadius: 999,
+                            background: "var(--gold)",
+                            width:
+                              progressoNota && progressoNota.total > 0
+                                ? `${Math.round((progressoNota.atual / progressoNota.total) * 100)}%`
+                                : "12%",
+                            transition: "width 0.2s ease",
+                          }}
+                        />
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.74rem",
+                          color: "var(--muted)",
+                          marginTop: 4,
+                          textAlign: "center",
+                        }}
+                      >
+                        {progressoNota && progressoNota.total > 0
+                          ? `Lendo página ${progressoNota.atual} de ${progressoNota.total}... não feche essa tela.`
+                          : "Abrindo o PDF... não feche essa tela."}
+                      </div>
+                    </div>
+                  )}
+                  {erroImportacao && (
+                    <div className="login-error" style={{ marginBottom: 12 }}>
+                      {erroImportacao}
+                    </div>
+                  )}
+
+                  {itensEntrada.length > 0 && (
+                    <>
+                      <div className="entrada-secao-titulo">
+                        Reconhecidos automaticamente ({itensEntrada.length})
+                      </div>
+                      <div style={{ display: "grid", gap: 8, marginBottom: 8 }}>
+                        {itensEntrada.map((item) => (
+                          <div
+                            key={item.produto.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 10,
+                              paddingBottom: 8,
+                              borderBottom: "1px solid var(--border)",
+                            }}
+                          >
+                            <span style={{ flex: 1, fontSize: "0.86rem" }}>
+                              {item.produto.nome}
+                            </span>
+                            <div className="qty-control">
+                              <button
+                                onClick={() =>
+                                  atualizarQtdEntrada(item.produto.id, item.quantidade - 1)
+                                }
+                              >
+                                −
+                              </button>
+                              <span style={{ minWidth: 20, textAlign: "center" }}>
+                                {item.quantidade}
+                              </span>
+                              <button
+                                onClick={() =>
+                                  atualizarQtdEntrada(item.produto.id, item.quantidade + 1)
+                                }
+                              >
+                                +
+                              </button>
+                            </div>
+                            <button
+                              className="btn btn-ghost btn-icon"
+                              onClick={() => removerItemEntrada(item.produto.id)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {naoEncontrados.length > 0 && (
+                    <>
+                      <div className="entrada-secao-titulo">
+                        Não reconhecidos ({naoEncontrados.length}) — toque pra localizar o produto certo
+                      </div>
+                      {naoEncontrados.map((item, idx) => (
+                        <div key={idx} className="item-nao-reconhecido">
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              justifyContent: "space-between",
+                              gap: 10,
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontSize: "0.86rem" }}>{item.descricao}</div>
+                              <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
+                                {item.quantidade} un. na nota
+                              </div>
+                            </div>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ flexShrink: 0 }}
+                              onClick={() => {
+                                if (resolvendoItem === idx) {
+                                  setResolvendoItem(null);
+                                  setBuscaResolucao("");
+                                } else {
+                                  setResolvendoItem(idx);
+                                  setBuscaResolucao("");
+                                }
+                              }}
+                            >
+                              {resolvendoItem === idx ? "Fechar" : "Localizar produto"}
+                            </button>
+                          </div>
+                          {resolvendoItem === idx && (
+                            <div style={{ marginTop: 10 }}>
+                              <input
+                                className="search-input"
+                                placeholder="Buscar produto no catálogo..."
+                                value={buscaResolucao}
+                                onChange={(e) => setBuscaResolucao(e.target.value)}
+                                style={{ marginBottom: 8 }}
+                              />
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gap: 4,
+                                  maxHeight: 160,
+                                  overflowY: "auto",
+                                }}
+                              >
+                                {resultadosResolucao.length === 0 ? (
+                                  <div className="empty-state" style={{ padding: "12px 0" }}>
+                                    Nenhum produto encontrado.
+                                  </div>
+                                ) : (
+                                  resultadosResolucao.map((p) => (
+                                    <div
+                                      key={p.id}
+                                      className="cart-line"
+                                      style={{ cursor: "pointer" }}
+                                      onClick={() => resolverNaoEncontrado(idx, p)}
+                                    >
+                                      <span>{p.nome}</span>
+                                      <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+                                        {p.estoque} em estoque
+                                      </span>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="sheet-full-footer">
+              {etapaEntrada === "metodo" ? (
+                <div className="form-actions">
+                  <button className="btn btn-ghost btn-block" onClick={fecharEntrada}>
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <div className="form-actions">
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => setEtapaEntrada("metodo")}
+                    disabled={importandoNota}
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    disabled={itensEntrada.length === 0 || salvandoEntrada}
+                    onClick={confirmarEntrada}
+                  >
+                    Confirmar entrada (
+                    {itensEntrada.reduce((s, i) => s + i.quantidade, 0)} un.)
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
