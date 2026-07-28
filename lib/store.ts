@@ -6,6 +6,7 @@ export type Produto = {
   nome: string;
   familiaOlfativa: string;
   descricaoCurta: string;
+  descricaoCompleta: string | null;
   imagem: string | null;
   custo: number;
   preco: number;
@@ -140,6 +141,7 @@ function produtoFromRow(row: any): Produto {
     nome: row.nome,
     familiaOlfativa: row.familia_olfativa,
     descricaoCurta: row.descricao_curta,
+    descricaoCompleta: row.descricao_completa ?? null,
     imagem: row.imagem,
     custo: Number(row.custo),
     preco: Number(row.preco),
