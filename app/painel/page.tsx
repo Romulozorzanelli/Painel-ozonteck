@@ -1247,6 +1247,7 @@ function TabEstoque({
   const [ocultarZerados, setOcultarZerados] = useState(true);
   const [detalhes, setDetalhes] = useState<Produto | null>(null);
   const [slideDetalhe, setSlideDetalhe] = useState(0);
+  const [descricaoExpandida, setDescricaoExpandida] = useState(false);
   const [ajuste, setAjuste] = useState<Produto | null>(null);
   const [ajusteValor, setAjusteValor] = useState(0);
   const [entradaAberta, setEntradaAberta] = useState(false);
@@ -1554,6 +1555,7 @@ function TabEstoque({
                   onClick={() => {
                     setDetalhes(p);
                     setSlideDetalhe(0);
+                    setDescricaoExpandida(false);
                   }}
                 >
                   <div className="stock-card-media">
@@ -1688,11 +1690,45 @@ function TabEstoque({
                   color: "var(--muted)",
                   fontSize: "0.86rem",
                   lineHeight: 1.5,
-                  margin: "0 0 16px",
+                  margin: descricaoExpandida && detalhes.descricaoCompleta ? "0 0 8px" : "0 0 16px",
                 }}
               >
                 {detalhes.descricaoCurta}
               </p>
+            )}
+
+            {detalhes.descricaoCompleta && (
+              <>
+                {descricaoExpandida && (
+                  <p
+                    style={{
+                      color: "var(--muted)",
+                      fontSize: "0.86rem",
+                      lineHeight: 1.5,
+                      margin: "0 0 8px",
+                      whiteSpace: "pre-line",
+                    }}
+                  >
+                    {detalhes.descricaoCompleta}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setDescricaoExpandida((v) => !v)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    color: "var(--gold)",
+                    fontSize: "0.86rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    marginBottom: 16,
+                  }}
+                >
+                  {descricaoExpandida ? "Ver menos" : "Ver mais"}
+                </button>
+              </>
             )}
 
             <button
