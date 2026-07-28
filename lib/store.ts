@@ -234,6 +234,7 @@ async function seedProdutosIniciais() {
     estoque_minimo: 3,
     ativo: true,
     categoria: FAMILIA_OLFATIVA_PARA_CATEGORIA[p.familiaOlfativa] ?? "",
+    sexo: p.sexo ?? null,
   }));
 
   await supabase.from("produtos").upsert(rows, { onConflict: "id,owner_id" });
