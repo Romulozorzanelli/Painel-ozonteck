@@ -29,6 +29,18 @@ export const CATEGORIAS_CATALOGO: { valor: string; label: string }[] = [
   { valor: "combos", label: "Combos" },
 ];
 
+// Mapeia o texto livre "familiaOlfativa" usado no seed pra um dos valores fixos
+// de CATEGORIAS_CATALOGO acima. Usado só na criação inicial de produtos de conta nova.
+const FAMILIA_OLFATIVA_PARA_CATEGORIA: Record<string, string> = {
+  Perfumes: "perfumaria_17ml",
+  "Perfumes 100ml": "perfumaria_100ml",
+  "Linha Capilar": "linha_capilar",
+  Nutracêuticos: "nutraceuticos",
+  "Bem Estar": "bem_estar",
+  Acessorios: "acessorios",
+  Combos: "combos",
+};
+
 export type CatalogoConfig = {
   slug: string;
   titulo: string;
@@ -219,6 +231,7 @@ async function seedProdutosIniciais() {
     estoque: p.estoqueInicial,
     estoque_minimo: 3,
     ativo: true,
+    categoria: FAMILIA_OLFATIVA_PARA_CATEGORIA[p.familiaOlfativa] ?? "",
   }));
 
   await supabase.from("produtos").upsert(rows, { onConflict: "id,owner_id" });
