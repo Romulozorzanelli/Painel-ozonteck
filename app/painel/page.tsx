@@ -1378,6 +1378,19 @@ function TabEstoque({
     setBuscaResolucao("");
   }
 
+  // Manual e Importar são sessões independentes: trocar de método descarta
+  // qualquer seleção feita no outro, pra não somar itens de fluxos diferentes
+  // numa mesma entrada por engano.
+  function voltarParaMetodo() {
+    setEtapaEntrada("metodo");
+    setBuscaEntrada("");
+    setItensEntrada([]);
+    setNaoEncontrados([]);
+    setErroImportacao("");
+    setResolvendoItem(null);
+    setBuscaResolucao("");
+  }
+
   async function importarNotaFiscal(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -2189,7 +2202,7 @@ function TabEstoque({
                 <div className="form-actions">
                   <button
                     className="btn btn-ghost"
-                    onClick={() => setEtapaEntrada("metodo")}
+                    onClick={voltarParaMetodo}
                     disabled={importandoNota}
                   >
                     Voltar
