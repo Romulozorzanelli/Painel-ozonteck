@@ -53,6 +53,7 @@ textarea {
 button {
   -webkit-appearance: none;
   touch-action: manipulation;
+  color: inherit;
 }
 .app-shell {
   min-height: 100dvh;
@@ -472,6 +473,7 @@ button {
 .metodo-card-titulo {
   font-weight: 600;
   margin-bottom: 2px;
+  color: var(--text);
 }
 .metodo-card-subtitulo {
   color: var(--muted);
