@@ -7,6 +7,7 @@ export type SeedProduct = {
   custo: number;
   preco: number;
   estoqueInicial: number;
+  sexo?: "masculino" | "feminino";
 };
 
 export const SEED_PRODUCTS: SeedProduct[] = [
@@ -92,6 +93,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "speed-black-100-ml",
+    sexo: "masculino",
     nome: "SPEED BLACK 100 ML",
     familiaOlfativa: "Perfumes 100ml",
     descricaoCurta: "",
@@ -102,6 +104,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "laboom-17-ml",
+    sexo: "feminino",
     nome: "LABOOM 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -112,6 +115,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "madame-vi-100-ml",
+    sexo: "feminino",
     nome: "MADAME VI 100 ML",
     familiaOlfativa: "Perfumes 100ml",
     descricaoCurta: "",
@@ -122,6 +126,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "cinderela-100-ml",
+    sexo: "feminino",
     nome: "CINDERELA 100 ML",
     familiaOlfativa: "Perfumes 100ml",
     descricaoCurta: "",
@@ -132,6 +137,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "vg-sexy-100-ml",
+    sexo: "feminino",
     nome: "VG SEXY 100 ML",
     familiaOlfativa: "Perfumes 100ml",
     descricaoCurta: "",
@@ -142,6 +148,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "max-boss-100-ml",
+    sexo: "masculino",
     nome: "MAX BOSS 100 ML",
     familiaOlfativa: "Perfumes 100ml",
     descricaoCurta: "",
@@ -152,6 +159,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "presidente-100-ml",
+    sexo: "masculino",
     nome: "PRESIDENTE 100 ML",
     familiaOlfativa: "Perfumes 100ml",
     descricaoCurta: "",
@@ -172,6 +180,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "sentimento-100-ml",
+    sexo: "masculino",
     nome: "SENTIMENTO 100 ML",
     familiaOlfativa: "Perfumes 100ml",
     descricaoCurta: "",
@@ -182,6 +191,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "soberano-100-ml",
+    sexo: "masculino",
     nome: "SOBERANO 100 ML",
     familiaOlfativa: "Perfumes 100ml",
     descricaoCurta: "",
@@ -192,6 +202,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "vida-bella-100-ml",
+    sexo: "feminino",
     nome: "VIDA BELLA 100 ML",
     familiaOlfativa: "Perfumes 100ml",
     descricaoCurta: "",
@@ -202,6 +213,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "scandaloza-100-ml",
+    sexo: "feminino",
     nome: "SCANDALOZA 100 ML",
     familiaOlfativa: "Perfumes 100ml",
     descricaoCurta: "",
@@ -212,6 +224,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "lua-de-mel-em-paris-by-virginia-esquivel",
+    sexo: "feminino",
     nome: "Lua de Mel em Paris by Virgínia Esquivel",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -222,6 +235,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "ferias-no-caribe-by-virginia-esquivel",
+    sexo: "feminino",
     nome: "Férias no Caribe by Virgínia Esquivel",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -242,6 +256,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "sublime-100-ml",
+    sexo: "feminino",
     nome: "SUBLIME 100 ML",
     familiaOlfativa: "Perfumes 100ml",
     descricaoCurta: "",
@@ -252,6 +267,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "rhino-royale-100-ml",
+    sexo: "masculino",
     nome: "RHINO ROYALE 100 ML",
     familiaOlfativa: "Perfumes 100ml",
     descricaoCurta: "",
@@ -332,6 +348,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "aaliyah-100-ml",
+    sexo: "feminino",
     nome: "AALIYAH 100 Ml",
     familiaOlfativa: "Perfumes 100ml",
     descricaoCurta: "",
@@ -342,6 +359,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "oud-royale-100-ml",
+    sexo: "masculino",
     nome: "OUD ROYALE 100 Ml",
     familiaOlfativa: "Perfumes 100ml",
     descricaoCurta: "",
@@ -352,6 +370,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "oud-royale-17-ml",
+    sexo: "masculino",
     nome: "OUD ROYALE 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -362,6 +381,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "rhino-royale-17-ml",
+    sexo: "masculino",
     nome: "RHINO ROYALE 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -372,6 +392,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "sublime-17-ml",
+    sexo: "feminino",
     nome: "SUBLIME 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -382,6 +403,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "aaliyah-17-ml",
+    sexo: "feminino",
     nome: "AALIYAH 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -552,6 +574,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "soul-17-ml",
+    sexo: "masculino",
     nome: "SOUL 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -562,6 +585,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "aventura-17-ml",
+    sexo: "masculino",
     nome: "AVENTURA 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -572,6 +596,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "docurinha-17-ml",
+    sexo: "feminino",
     nome: "DOÇURINHA 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -582,6 +607,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "scandaloza-17-ml",
+    sexo: "feminino",
     nome: "SCANDALOZA 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -592,6 +618,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "madame-vi-17-ml",
+    sexo: "feminino",
     nome: "MADAME VI 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -602,6 +629,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "gouf-tradicional-17-ml",
+    sexo: "masculino",
     nome: "GOUF TRADICIONAL 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -612,6 +640,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "easy-line-17-ml",
+    sexo: "masculino",
     nome: "EASY LINE 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -622,6 +651,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "famma-17-ml",
+    sexo: "feminino",
     nome: "FAMMA 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -632,6 +662,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "blue-sky-17-ml",
+    sexo: "feminino",
     nome: "BLUE SKY 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -642,6 +673,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "303-for-woman-17-ml",
+    sexo: "feminino",
     nome: "303 FOR WOMAN 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -652,6 +684,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "gouf-blue-17-ml",
+    sexo: "masculino",
     nome: "GOUF BLUE 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -662,6 +695,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "seduction-17-ml",
+    sexo: "feminino",
     nome: "SEDUCTION 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -672,6 +706,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "vida-bella-17-ml",
+    sexo: "feminino",
     nome: "VIDA BELLA 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -682,6 +717,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "venum-17-ml",
+    sexo: "masculino",
     nome: "VENUM 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -692,6 +728,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "fantastica-bry-17-ml",
+    sexo: "feminino",
     nome: "FANTASTICA BRY 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -702,6 +739,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "alem-17-ml",
+    sexo: "feminino",
     nome: "ALEM 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -712,6 +750,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "303-men-17-ml",
+    sexo: "masculino",
     nome: "303 MEN 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -722,6 +761,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "max-boss-17-ml",
+    sexo: "masculino",
     nome: "MAX BOSS 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -732,6 +772,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "303-vip-men-17-ml",
+    sexo: "masculino",
     nome: "303 VIP MEN 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -912,6 +953,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "speed-black-17-ml",
+    sexo: "masculino",
     nome: "SPEED BLACK 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -922,6 +964,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
   },
   {
     slug: "vg-sexy-17-ml",
+    sexo: "feminino",
     nome: "VG SEXY 17 ML",
     familiaOlfativa: "Perfumes",
     descricaoCurta: "",
@@ -1008,6 +1051,127 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     imagem: null,
     custo: 54.95,
     preco: 109.9,
+    estoqueInicial: 0,
+  },
+  {
+    slug: "angelical",
+    sexo: "feminino",
+    nome: "Angelical 17 ML",
+    familiaOlfativa: "Âmbar Baunilha",
+    descricaoCurta: "Oriental gourmand com praliné e chocolate sobre patchouli e baunilha, doce, quente e envolvente.",
+    imagem: "https://imagedelivery.net/v_9vOoLYYctZBzCMdLIuNQ/61ee753b-04c0-409b-71eb-529d12f61e00/fullhd",
+    custo: 15.0,
+    preco: 45.0,
+    estoqueInicial: 0,
+  },
+  {
+    slug: "capadocia",
+    sexo: "masculino",
+    nome: "Capadócia 17 ML",
+    familiaOlfativa: "Fougère Aromático",
+    descricaoCurta: "Fougère aromático clássico com anis e lavanda sobre sândalo, elegância masculina tradicional.",
+    imagem: "https://imagedelivery.net/v_9vOoLYYctZBzCMdLIuNQ/e3326db1-820a-4198-c096-ea6d6a634100/fullhd",
+    custo: 15.0,
+    preco: 45.0,
+    estoqueInicial: 0,
+  },
+  {
+    slug: "cinderela",
+    sexo: "feminino",
+    nome: "Cinderela 17 ML",
+    familiaOlfativa: "Âmbar Floral",
+    descricaoCurta: "Floral branco intenso de tuberosa e jasmim contrastando com cacau e tonka, doce e ousado ao mesmo tempo.",
+    imagem: "https://imagedelivery.net/v_9vOoLYYctZBzCMdLIuNQ/b2c68def-5a8b-4b15-3236-a51d0ef03100/fullhd",
+    custo: 15.0,
+    preco: 45.0,
+    estoqueInicial: 0,
+  },
+  {
+    slug: "dg-red",
+    sexo: "feminino",
+    nome: "DG Red 17 ML",
+    familiaOlfativa: "Floral Frutado",
+    descricaoCurta: "Floral oriental adocicado com toque de pêssego e baunilha, envolvente e elegante para ocasiões especiais.",
+    imagem: "https://imagedelivery.net/v_9vOoLYYctZBzCMdLIuNQ/cd6b45c5-c2c4-424c-a23c-84a1ed1d3d00/fullhd",
+    custo: 15.0,
+    preco: 45.0,
+    estoqueInicial: 0,
+  },
+  {
+    slug: "fera",
+    sexo: "masculino",
+    nome: "Fera 17 ML",
+    familiaOlfativa: "Âmbar Amadeirado",
+    descricaoCurta: "Oriental amadeirado especiado com toque de couro, quente e animal, marcante e ousado.",
+    imagem: "https://imagedelivery.net/v_9vOoLYYctZBzCMdLIuNQ/7e85edfb-52b3-443f-c179-0ba1ce95a500/fullhd",
+    custo: 15.0,
+    preco: 45.0,
+    estoqueInicial: 0,
+  },
+  {
+    slug: "grecia",
+    sexo: "feminino",
+    nome: "Grécia 17 ML",
+    familiaOlfativa: "Âmbar Floral",
+    descricaoCurta: "Floral gourmand levemente salgado, com gengibre e baunilha, combinação moderna e sensual.",
+    imagem: "https://imagedelivery.net/v_9vOoLYYctZBzCMdLIuNQ/afb09b06-5a1f-4de7-7385-d761427b4d00/fullhd",
+    custo: 15.0,
+    preco: 45.0,
+    estoqueInicial: 0,
+  },
+  {
+    slug: "maximum",
+    sexo: "masculino",
+    nome: "Maximum 17 ML",
+    familiaOlfativa: "Amadeirado Especiado",
+    descricaoCurta: "Amadeirado oriental com maçã e canela sobre sândalo, quente, envolvente e sofisticado.",
+    imagem: "https://imagedelivery.net/v_9vOoLYYctZBzCMdLIuNQ/20bea3a4-cc2c-4a3f-6930-0cba3d048d00/fullhd",
+    custo: 15.0,
+    preco: 45.0,
+    estoqueInicial: 0,
+  },
+  {
+    slug: "presidente",
+    sexo: "masculino",
+    nome: "Presidente 17 ML",
+    familiaOlfativa: "Amadeirado Especiado",
+    descricaoCurta: "Especiado com canela e laranja sobre base amadeirada com toque de couro, quente e marcante.",
+    imagem: "https://imagedelivery.net/v_9vOoLYYctZBzCMdLIuNQ/66317d03-025b-4ac7-b0d0-939c37848200/fullhd",
+    custo: 15.0,
+    preco: 45.0,
+    estoqueInicial: 0,
+  },
+  {
+    slug: "sentimento",
+    sexo: "masculino",
+    nome: "Sentimento 17 ML",
+    familiaOlfativa: "Âmbar Amadeirado",
+    descricaoCurta: "Cítrico aromático com frescor metálico, leve e discreto, ideal pro uso diário.",
+    imagem: "https://imagedelivery.net/v_9vOoLYYctZBzCMdLIuNQ/f52c103a-769b-4113-83fa-deb0e4664c00/fullhd",
+    custo: 15.0,
+    preco: 45.0,
+    estoqueInicial: 0,
+  },
+  {
+    slug: "soberano",
+    sexo: "masculino",
+    nome: "Soberano 17 ML",
+    familiaOlfativa: "Amadeirado Aquático",
+    descricaoCurta: "Amadeirado aquático com toranja e louro sobre âmbar marinho, frescor confiante e imponente.",
+    imagem: "https://imagedelivery.net/v_9vOoLYYctZBzCMdLIuNQ/dd376491-c91c-4cc5-5b6d-fd0691df3900/fullhd",
+    custo: 15.0,
+    preco: 45.0,
+    estoqueInicial: 0,
+  },
+  {
+    slug: "vip-girl-vip",
+    sexo: "feminino",
+    nome: "VIP Girl 17 ML",
+    familiaOlfativa: "Floral Frutal",
+    descricaoCurta: "Frutado floral efervescente com notas de champanhe, leve e cintilante, ideal pro dia a dia com toque de glamour.",
+    imagem: "https://imagedelivery.net/v_9vOoLYYctZBzCMdLIuNQ/3e294876-4deb-4c9a-0f9f-c994ba030400/fullhd",
+    custo: 15.0,
+    preco: 45.0,
     estoqueInicial: 0,
   },
 ];
