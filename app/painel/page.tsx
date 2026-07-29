@@ -3562,11 +3562,16 @@ function TabVendas({
                     onChange={(e) => setBuscaProduto(e.target.value)}
                     style={{ marginBottom: 12 }}
                   />
+                  {carrinho.length > 0 && (
+                    <div style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: 8 }}>
+                      {carrinho.length} item(ns) · {currency(totalCarrinho)}
+                    </div>
+                  )}
                   <div
                     style={{
-                      display: "grid",
-                      gap: 8,
-                      maxHeight: 200,
+                      display: "flex",
+                      flexDirection: "column",
+                      maxHeight: 320,
                       overflowY: "auto",
                       marginBottom: 16,
                     }}
@@ -3574,77 +3579,81 @@ function TabVendas({
                     {produtosFiltrados.map((p) => {
                       const disponivel = estoqueDisponivel(p);
                       const precoUsar = revendedor ? p.custo : p.preco;
+                      const item = carrinho.find((i) => i.produtoId === p.id);
+                      const semEstoque = disponivel <= 0 && !item;
+
+                      function adicionar() {
+                        if (disponivel <= 0) return;
+                        setCarrinho((itens) => {
+                          const existente = itens.find((i) => i.produtoId === p.id);
+                          if (existente) {
+                            if (existente.quantidade >= disponivel) return itens;
+                            return itens.map((i) =>
+                              i.produtoId === p.id
+                                ? { ...i, quantidade: i.quantidade + 1, precoUnitario: precoUsar }
+                                : i
+                            );
+                          }
+                          return [
+                            ...itens,
+                            { produtoId: p.id, nome: p.nome, quantidade: 1, precoUnitario: precoUsar },
+                          ];
+                        });
+                      }
+
                       return (
                         <div
                           key={p.id}
-                          className="cart-line"
+                          className={"produto-linha" + (item ? " selecionada" : "")}
                           style={{
-                            cursor: disponivel > 0 ? "pointer" : "not-allowed",
-                            opacity: disponivel > 0 ? 1 : 0.45,
+                            cursor: semEstoque ? "not-allowed" : "pointer",
+                            opacity: semEstoque ? 0.4 : 1,
                           }}
                           onClick={() => {
-                            if (disponivel <= 0) return;
-                            setCarrinho((itens) => {
-                              const existente = itens.find((i) => i.produtoId === p.id);
-                              if (existente) {
-                                if (existente.quantidade >= disponivel) return itens;
-                                return itens.map((i) =>
-                                  i.produtoId === p.id
-                                    ? { ...i, quantidade: i.quantidade + 1, precoUnitario: precoUsar }
-                                    : i
-                                );
-                              }
-                              return [
-                                ...itens,
-                                { produtoId: p.id, nome: p.nome, quantidade: 1, precoUnitario: precoUsar },
-                              ];
-                            });
+                            if (!item) adicionar();
                           }}
                         >
-                          <span>
+                          {p.imagem ? (
+                            <img src={p.imagem} className="produto-mini-thumb" alt="" />
+                          ) : (
+                            <div className="produto-mini-thumb-placeholder">
+                              {p.nome.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="produto-linha-nome">
                             {p.nome}{" "}
-                            <span style={{ color: "var(--muted)", fontSize: "0.76rem" }}>
-                              ({disponivel} un.)
+                            <span style={{ fontSize: "0.74rem" }}>
+                              ({disponivel} un. · {currency(precoUsar)})
                             </span>
                           </span>
-                          <span>{currency(precoUsar)}</span>
+                          {item ? (
+                            <div
+                              className="qty-control"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button onClick={() => ajustarQtdCarrinho(p.id, -1)}>−</button>
+                              <span style={{ minWidth: 16, textAlign: "center" }}>
+                                {item.quantidade}
+                              </span>
+                              <button onClick={() => ajustarQtdCarrinho(p.id, 1)}>+</button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className="produto-linha-add"
+                              disabled={semEstoque}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                adicionar();
+                              }}
+                            >
+                              +
+                            </button>
+                          )}
                         </div>
                       );
                     })}
                   </div>
-
-                  {carrinho.length > 0 && (
-                    <div style={{ marginBottom: 16 }}>
-                      <div className="entrada-secao-titulo">
-                        Itens desta venda ({carrinho.length})
-                      </div>
-                      {carrinho.map((item) => (
-                        <div key={item.produtoId} className="cart-line">
-                          <span>{item.nome}</span>
-                          <div className="qty-control">
-                            <button onClick={() => ajustarQtdCarrinho(item.produtoId, -1)}>−</button>
-                            <span style={{ minWidth: 16, textAlign: "center" }}>{item.quantidade}</span>
-                            <button onClick={() => ajustarQtdCarrinho(item.produtoId, 1)}>+</button>
-                          </div>
-                        </div>
-                      ))}
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          marginTop: 10,
-                          paddingTop: 10,
-                          borderTop: "1px solid var(--border)",
-                          fontWeight: 700,
-                        }}
-                      >
-                        <span>Total</span>
-                        <span className="value accent" style={{ fontSize: "1.05rem" }}>
-                          {currency(totalCarrinho)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
 
