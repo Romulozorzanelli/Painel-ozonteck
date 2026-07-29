@@ -121,6 +121,7 @@ export type Venda = {
   tipoVenda: "cliente" | "revendedor";
   posVendaContatado: boolean;
   indicacaoPedida: boolean;
+  lembreteCobranca: string | null;
 };
 
 export type Lancamento = {
@@ -191,6 +192,7 @@ function vendaFromRow(row: any): Venda {
     tipoVenda: row.tipo_venda ?? "cliente",
     posVendaContatado: row.pos_venda_contatado ?? false,
     indicacaoPedida: row.indicacao_pedida ?? false,
+    lembreteCobranca: row.lembrete_cobranca ?? null,
     itens: (row.venda_itens ?? []).map((i: any) => ({
       produtoId: i.produto_id,
       nome: i.nome,
@@ -469,6 +471,7 @@ export async function registrarVenda(input: {
   itens: ItemVenda[];
   formaPagamento: string;
   tipoVenda: "cliente" | "revendedor";
+  lembreteCobranca?: string | null;
 }) {
   const supabase = createClient();
   const total = input.itens.reduce((sum, i) => sum + i.quantidade * i.precoUnitario, 0);
@@ -482,6 +485,7 @@ export async function registrarVenda(input: {
       forma_pagamento: input.formaPagamento,
       status: "concluida",
       tipo_venda: input.tipoVenda,
+      lembrete_cobranca: input.formaPagamento === "A receber" ? input.lembreteCobranca || null : null,
     })
     .select("id")
     .single();
@@ -523,6 +527,7 @@ export async function atualizarVenda(
     itens: ItemVenda[];
     formaPagamento: string;
     tipoVenda: "cliente" | "revendedor";
+    lembreteCobranca?: string | null;
   }
 ) {
   const supabase = createClient();
@@ -560,6 +565,7 @@ export async function atualizarVenda(
       forma_pagamento: input.formaPagamento,
       status: "concluida",
       tipo_venda: input.tipoVenda,
+      lembrete_cobranca: input.formaPagamento === "A receber" ? input.lembreteCobranca || null : null,
     })
     .eq("id", vendaId);
 
@@ -689,7 +695,10 @@ export async function receberVenda(id: string, formaPagamento: string): Promise<
   const { data: venda } = await supabase.from("vendas").select("*").eq("id", id).single();
 
   if (venda && venda.forma_pagamento === "A receber") {
-    await supabase.from("vendas").update({ forma_pagamento: formaPagamento }).eq("id", id);
+    await supabase
+      .from("vendas")
+      .update({ forma_pagamento: formaPagamento, lembrete_cobranca: null })
+      .eq("id", id);
 
     await addLancamento({
       tipo: "entrada",
@@ -721,6 +730,12 @@ export async function marcarPosVendaContatado(id: string): Promise<Venda[]> {
 export async function marcarIndicacaoPedida(id: string): Promise<Venda[]> {
   const supabase = createClient();
   await supabase.from("vendas").update({ indicacao_pedida: true }).eq("id", id);
+  return getVendas();
+}
+
+export async function limparLembreteCobranca(id: string): Promise<Venda[]> {
+  const supabase = createClient();
+  await supabase.from("vendas").update({ lembrete_cobranca: null }).eq("id", id);
   return getVendas();
 }
 
