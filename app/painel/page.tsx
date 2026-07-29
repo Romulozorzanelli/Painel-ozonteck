@@ -489,7 +489,6 @@ function TabInicio({
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [vendas, setVendas] = useState<Venda[]>([]);
-  const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
@@ -505,14 +504,12 @@ function TabInicio({
       getProdutos(),
       getClientes(),
       getVendas(),
-      getFinanceiro(),
       getPerfil(),
       getTemplates(),
-    ]).then(([p, c, v, l, perf, temp]) => {
+    ]).then(([p, c, v, perf, temp]) => {
       setProdutos(p);
       setClientes(c);
       setVendas(v);
-      setLancamentos(l);
       setPerfil(perf);
       setTemplates(temp);
     });
@@ -554,16 +551,6 @@ function TabInicio({
     vendasConcluidas.length > 0
       ? vendasConcluidas.reduce((s, v) => s + v.total, 0) / vendasConcluidas.length
       : 0;
-
-  // Pontos de graduação = total gasto comprando estoque da Ozonteck (1 BRL = 1
-  // ponto), rastreado como saída no financeiro sempre que uma entrada de
-  // estoque é confirmada.
-  const pontosGraduacao = lancamentos
-    .filter((l) => l.tipo === "saida" && l.categoria === "Compra de estoque")
-    .reduce((s, l) => s + l.valor, 0);
-  const metaPontuacao = perfil?.metaPontuacao ?? 0;
-  const progressoGraduacao =
-    metaPontuacao > 0 ? Math.min(100, (pontosGraduacao / metaPontuacao) * 100) : 0;
 
   const metaVenda = perfil?.metaVenda ?? 0;
   const progressoVendaMes =
@@ -859,41 +846,21 @@ function TabInicio({
         </div>
       </div>
 
-      {(metaVenda > 0 || metaPontuacao > 0) && (
+      {metaVenda > 0 && (
         <div className="panel-card" style={{ marginTop: 16 }}>
           <h2 className="panel-title">Metas</h2>
-          {metaVenda > 0 && (
-            <div style={{ marginBottom: metaPontuacao > 0 ? 18 : 0 }}>
-              <div className="row-card-sub" style={{ marginBottom: 6 }}>
-                Vendas do mês: {currency(valorVendasMes)} de {currency(metaVenda)} (
-                {Math.round(progressoVendaMes)}%)
-              </div>
-              <div className="progress-track">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${progressoVendaMes}%`, background: "var(--success)" }}
-                />
-              </div>
+          <div>
+            <div className="row-card-sub" style={{ marginBottom: 6 }}>
+              Vendas do mês: {currency(valorVendasMes)} de {currency(metaVenda)} (
+              {Math.round(progressoVendaMes)}%)
             </div>
-          )}
-          {metaPontuacao > 0 && (
-            <div>
-              <div className="row-card-sub" style={{ marginBottom: 6 }}>
-                Graduação: {Math.round(pontosGraduacao)} de {Math.round(metaPontuacao)} pontos (
-                {Math.round(progressoGraduacao)}%)
-              </div>
-              <div className="progress-track">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${progressoGraduacao}%` }}
-                />
-              </div>
-              <p style={{ color: "var(--muted)", fontSize: "0.76rem", marginTop: 6 }}>
-                Pontos somam o valor investido em compras de estoque (1 real = 1
-                ponto).
-              </p>
+            <div className="progress-track">
+              <div
+                className="progress-fill"
+                style={{ width: `${progressoVendaMes}%`, background: "var(--success)" }}
+              />
             </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -4487,16 +4454,6 @@ function TabPerfil() {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="form-row">
-            <label>Meta de pontuação</label>
-            <input
-              type="number"
-              inputMode="decimal"
-              className="text-input"
-              value={metaPontuacao}
-              onChange={(e) => setMetaPontuacao(Number(e.target.value))}
-            />
           </div>
           <div className="form-row">
             <label>Meta de venda (R$)</label>
