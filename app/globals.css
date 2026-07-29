@@ -500,20 +500,16 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 8px;
-  border-radius: 10px;
+  padding: 10px 6px 10px 10px;
   cursor: pointer;
-  transition: background 0.12s ease;
+  border-left: 2px solid transparent;
+  transition: border-color 0.12s ease;
 }
 .produto-linha + .produto-linha {
-  border-top: 1px solid rgba(148, 163, 197, 0.08);
+  border-top: 1px solid rgba(148, 163, 197, 0.09);
 }
 .produto-linha.selecionada {
-  background: var(--blue-light-soft);
-  border-top-color: transparent;
-}
-.produto-linha.selecionada + .produto-linha {
-  border-top-color: transparent;
+  border-left-color: var(--blue-light);
 }
 .produto-mini-thumb {
   width: 34px;
@@ -535,6 +531,10 @@ button {
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 700;
+}
+.produto-linha.selecionada .produto-mini-thumb,
+.produto-linha.selecionada .produto-mini-thumb-placeholder {
+  background: var(--blue-light-soft);
 }
 .produto-linha-nome {
   flex: 1;
