@@ -231,6 +231,19 @@ const CONFIG_TAREFA: Record<TipoTarefa, { label: string; emoji: string; badge: s
   cobranca: { label: "Cobrança", emoji: "💰", badge: "badge-low" },
 };
 
+// Ordem de exibição dos grupos: mais urgente/sensível a tempo primeiro.
+const ORDEM_TIPOS_TAREFA: TipoTarefa[] = [
+  "cobranca",
+  "aniversario",
+  "pos_venda",
+  "novo_cadastro",
+  "cadastro_incompleto",
+  "pedir_aniversario",
+  "indicacao",
+  "renovar",
+  "inativo",
+];
+
 const LOGO_URL =
   "https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/brand-assets/Screenshot_20260722_100709_ChatGPT.jpg";
 
@@ -497,6 +510,7 @@ function TabInicio({
   const [mensagensEditadas, setMensagensEditadas] = useState<Record<string, string>>({});
   const [dispensados, setDispensados] = useState<Set<string>>(new Set());
   const [processandoTarefa, setProcessandoTarefa] = useState(false);
+  const [gruposAbertos, setGruposAbertos] = useState<Set<TipoTarefa>>(new Set());
   const jaAtivouAntes = useRef(false);
 
   function buscarDados() {
@@ -776,6 +790,22 @@ function TabInicio({
     ...tarefasInativo,
   ].filter((t) => !dispensados.has(t.id));
 
+  const tarefasPorTipo = new Map<TipoTarefa, Tarefa[]>();
+  for (const t of tarefas) {
+    const lista = tarefasPorTipo.get(t.tipo) ?? [];
+    lista.push(t);
+    tarefasPorTipo.set(t.tipo, lista);
+  }
+
+  function alternarGrupo(tipo: TipoTarefa) {
+    setGruposAbertos((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(tipo)) novo.delete(tipo);
+      else novo.add(tipo);
+      return novo;
+    });
+  }
+
   async function concluirTarefa(t: Tarefa) {
     if (processandoTarefa) return;
     setProcessandoTarefa(true);
@@ -880,28 +910,36 @@ function TabInicio({
             </p>
           </div>
         ) : (
-          <div className="list">
-            {tarefas.map((t) => {
-              const cfg = CONFIG_TAREFA[t.tipo];
-              const badgeClasse = cfg.badge;
-              const label = cfg.label;
-              const emoji = cfg.emoji;
-
+          <div>
+            {ORDEM_TIPOS_TAREFA.map((tipo) => {
+              const lista = tarefasPorTipo.get(tipo);
+              if (!lista || lista.length === 0) return null;
+              const cfg = CONFIG_TAREFA[tipo];
+              const aberto = gruposAbertos.has(tipo);
               return (
-                <div
-                  key={t.id}
-                  className="row-card"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => abrirTarefa(t)}
-                >
-                  <div className="row-card-media-placeholder">{emoji}</div>
-                  <div className="row-card-body">
-                    <div className="row-card-title">{t.clienteNome}</div>
-                    <div className="row-card-sub">
-                      <span className={"badge " + badgeClasse}>{label}</span>{" "}
-                      · {t.dataReferencia}
-                    </div>
+                <div key={tipo}>
+                  <div className="tarefa-grupo-header" onClick={() => alternarGrupo(tipo)}>
+                    <span className="tarefa-grupo-titulo">
+                      <span>{cfg.emoji}</span>
+                      {cfg.label}
+                      <span className={"badge " + cfg.badge}>{lista.length}</span>
+                    </span>
+                    <span className="tarefa-grupo-seta">{aberto ? "▲" : "▼"}</span>
                   </div>
+                  {aberto && (
+                    <div className="tarefa-grupo-corpo">
+                      {lista.map((t) => (
+                        <div
+                          key={t.id}
+                          className="cliente-linha"
+                          onClick={() => abrirTarefa(t)}
+                        >
+                          <span className="cliente-linha-nome">{t.clienteNome}</span>
+                          <span className="cliente-linha-telefone">{t.dataReferencia}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
