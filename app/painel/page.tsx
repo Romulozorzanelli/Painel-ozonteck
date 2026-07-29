@@ -2351,10 +2351,12 @@ function TabClientes({
 
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    if (!termo) return clientes;
-    return clientes.filter(
-      (c) => c.nome.toLowerCase().includes(termo) || c.telefone.includes(termo)
-    );
+    const base = termo
+      ? clientes.filter(
+          (c) => c.nome.toLowerCase().includes(termo) || c.telefone.includes(termo)
+        )
+      : clientes;
+    return [...base].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   }, [clientes, busca]);
 
   function totalGasto(clienteId: string) {
@@ -2438,14 +2440,10 @@ function TabClientes({
     <div>
       <div className="page-header">
         <h1>Clientes</h1>
-        <p>Cadastro e histórico de relacionamento.</p>
-      </div>
-
-      <div className="kpi-scroll">
-        <div className="kpi-card">
-          <div className="label">Clientes</div>
-          <div className="value">{clientes.length}</div>
-        </div>
+        <p>
+          {clientes.length} cliente{clientes.length === 1 ? "" : "s"} cadastrado
+          {clientes.length === 1 ? "" : "s"}.
+        </p>
       </div>
 
       <div className="panel-card">
@@ -2456,38 +2454,41 @@ function TabClientes({
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
-          <button
-            className="btn btn-primary btn-block"
-            onClick={() =>
-              setEditando({
-                id: "",
-                nome: "",
-                telefone: "",
-                email: "",
-                origem: "Indicação",
-                observacoes: "",
-                aniversarioDia: null,
-                aniversarioMes: null,
-                proximoFollowup: null,
-                criadoEm: new Date().toISOString(),
-                boasVindasContatado: false,
-                sexo: null,
-                emRelacionamento: null,
-                temFilhos: null,
-                inatividadeContatadaEm: null,
-                aniversarioPedido: false,
-              })
-            }
-          >
-            + Novo cliente
-          </button>
-          <button
-            className="btn btn-ghost btn-block"
-            style={{ marginTop: 8 }}
-            onClick={() => setImportAberto(true)}
-          >
-            Importar contatos (.vcf)
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="btn btn-primary btn-sm"
+              style={{ flex: 1 }}
+              onClick={() =>
+                setEditando({
+                  id: "",
+                  nome: "",
+                  telefone: "",
+                  email: "",
+                  origem: "Indicação",
+                  observacoes: "",
+                  aniversarioDia: null,
+                  aniversarioMes: null,
+                  proximoFollowup: null,
+                  criadoEm: new Date().toISOString(),
+                  boasVindasContatado: false,
+                  sexo: null,
+                  emRelacionamento: null,
+                  temFilhos: null,
+                  inatividadeContatadaEm: null,
+                  aniversarioPedido: false,
+                })
+              }
+            >
+              + Novo cliente
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ flex: 1 }}
+              onClick={() => setImportAberto(true)}
+            >
+              Importar planilha
+            </button>
+          </div>
         </div>
 
         {filtrados.length === 0 ? (
@@ -2496,20 +2497,15 @@ function TabClientes({
             <p>Cadastre o primeiro cliente para começar a registrar vendas.</p>
           </div>
         ) : (
-          <div className="list">
+          <div>
             {filtrados.map((c) => (
               <div
                 key={c.id}
-                className="row-card"
-                style={{ cursor: "pointer" }}
+                className="cliente-linha"
                 onClick={() => setDetalhes(c)}
               >
-                <div className="row-card-media-placeholder">
-                  {c.nome.slice(0, 1).toUpperCase() || "?"}
-                </div>
-                <div className="row-card-body">
-                  <div className="row-card-title">{c.nome}</div>
-                </div>
+                <span className="cliente-linha-nome">{c.nome}</span>
+                {c.telefone && <span className="cliente-linha-telefone">{c.telefone}</span>}
               </div>
             ))}
           </div>
