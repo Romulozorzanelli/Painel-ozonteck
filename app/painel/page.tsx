@@ -2985,6 +2985,9 @@ function TabVendas({
   const [carregando, setCarregando] = useState(true);
   const [clienteSelecionado, setClienteSelecionado] = useState("");
   const [buscaCliente, setBuscaCliente] = useState("");
+  const [etapaVenda, setEtapaVenda] = useState<"produtos" | "cliente" | "pagamento">(
+    "produtos"
+  );
   const [clienteAvulso, setClienteAvulso] = useState("");
   const [formaPagamento, setFormaPagamento] = useState("Pix");
   const [lembreteCobranca, setLembreteCobranca] = useState("");
@@ -3033,6 +3036,7 @@ function TabVendas({
       setClienteAvulso("");
       setFormaPagamento("Pix");
       setLembreteCobranca("");
+      setEtapaVenda("produtos");
       setRevendedor(false);
       setSheetAberto(true);
       aoConsumirPreSelecao?.();
@@ -3050,6 +3054,7 @@ function TabVendas({
         setClienteAvulso("");
         setFormaPagamento("Pix");
         setLembreteCobranca("");
+        setEtapaVenda("produtos");
         setRevendedor(false);
         setCarrinho([
           { produtoId: produto.id, nome: produto.nome, quantidade: 1, precoUnitario: produto.preco },
@@ -3113,6 +3118,7 @@ function TabVendas({
     setClienteAvulso("");
     setFormaPagamento("Pix");
     setLembreteCobranca("");
+    setEtapaVenda("produtos");
     setRevendedor(false);
     setSheetAberto(true);
   }
@@ -3125,6 +3131,7 @@ function TabVendas({
     setClienteAvulso(v.clienteId ? "" : v.clienteNome);
     setFormaPagamento(v.formaPagamento);
     setLembreteCobranca(v.lembreteCobranca ?? "");
+    setEtapaVenda("produtos");
     setRevendedor(v.tipoVenda === "revendedor");
     setSheetAberto(true);
   }
@@ -3137,6 +3144,7 @@ function TabVendas({
     setBuscaCliente("");
     setClienteAvulso("");
     setLembreteCobranca("");
+    setEtapaVenda("produtos");
     setRevendedor(false);
   }
 
@@ -3147,8 +3155,16 @@ function TabVendas({
   const clienteEscolhido = clientes.find((c) => c.id === clienteSelecionado);
   const resultadosBuscaCliente = (() => {
     const termo = buscaCliente.trim().toLowerCase();
+    const termoDigits = buscaCliente.replace(/\D/g, "");
     if (!termo) return [];
-    return clientes.filter((c) => c.nome.toLowerCase().includes(termo)).slice(0, 30);
+    return clientes
+      .filter((c) => {
+        const bateNome = c.nome.toLowerCase().includes(termo);
+        const bateTelefone =
+          termoDigits.length >= 3 && (c.telefone || "").replace(/\D/g, "").includes(termoDigits);
+        return bateNome || bateTelefone;
+      })
+      .slice(0, 30);
   })();
   const vendasHoje = vendas.filter(
     (v) =>
@@ -3472,268 +3488,362 @@ function TabVendas({
 
       {sheetAberto && (
         <div className="sheet-overlay" onClick={fecharSheet}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet sheet-full" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-handle" />
-            <h2>{vendaEditando ? "Editar venda" : "Nova venda"}</h2>
-
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 14,
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid var(--border)",
-                background: revendedor ? "var(--gold-soft)" : "transparent",
-                cursor: "pointer",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={revendedor}
-                onChange={(e) => alternarRevendedor(e.target.checked)}
-              />
-              <span style={{ fontSize: "0.86rem" }}>
-                Venda para revendedor — usa o valor de custo
-              </span>
-            </label>
-
-            <input
-              className="search-input"
-              placeholder="Buscar produto..."
-              value={buscaProduto}
-              onChange={(e) => setBuscaProduto(e.target.value)}
-              style={{ marginBottom: 12 }}
-            />
-            <div
-              style={{
-                display: "grid",
-                gap: 8,
-                maxHeight: 200,
-                overflowY: "auto",
-                marginBottom: 16,
-              }}
-            >
-              {produtosFiltrados.map((p) => {
-                const disponivel = estoqueDisponivel(p);
-                const precoUsar = revendedor ? p.custo : p.preco;
-                return (
-                  <div
-                    key={p.id}
-                    className="cart-line"
-                    style={{
-                      cursor: disponivel > 0 ? "pointer" : "not-allowed",
-                      opacity: disponivel > 0 ? 1 : 0.45,
-                    }}
-                    onClick={() => {
-                      if (disponivel <= 0) return;
-                      setCarrinho((itens) => {
-                        const existente = itens.find((i) => i.produtoId === p.id);
-                        if (existente) {
-                          if (existente.quantidade >= disponivel) return itens;
-                          return itens.map((i) =>
-                            i.produtoId === p.id
-                              ? { ...i, quantidade: i.quantidade + 1, precoUnitario: precoUsar }
-                              : i
-                          );
-                        }
-                        return [
-                          ...itens,
-                          { produtoId: p.id, nome: p.nome, quantidade: 1, precoUnitario: precoUsar },
-                        ];
-                      });
-                    }}
-                  >
-                    <span>
-                      {p.nome}{" "}
-                      <span style={{ color: "var(--muted)", fontSize: "0.76rem" }}>
-                        ({disponivel} un.)
-                      </span>
-                    </span>
-                    <span>{currency(precoUsar)}</span>
-                  </div>
-                );
-              })}
+            <div className="sheet-header">
+              <h2>{vendaEditando ? "Editar venda" : "Nova venda"}</h2>
+              <button className="sheet-close" onClick={fecharSheet}>
+                ×
+              </button>
             </div>
 
-            {carrinho.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                {carrinho.map((item) => (
-                  <div key={item.produtoId} className="cart-line">
-                    <span>{item.nome}</span>
-                    <div className="qty-control">
-                      <button onClick={() => ajustarQtdCarrinho(item.produtoId, -1)}>−</button>
-                      <span style={{ minWidth: 16, textAlign: "center" }}>{item.quantidade}</span>
-                      <button onClick={() => ajustarQtdCarrinho(item.produtoId, 1)}>+</button>
-                    </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+              {(
+                [
+                  { chave: "produtos" as const, label: "1 · Produtos" },
+                  { chave: "cliente" as const, label: "2 · Cliente" },
+                  { chave: "pagamento" as const, label: "3 · Pagamento" },
+                ]
+              ).map((etapa) => (
+                <button
+                  key={etapa.chave}
+                  type="button"
+                  onClick={() => {
+                    if (etapa.chave !== "produtos" && carrinho.length === 0) return;
+                    setEtapaVenda(etapa.chave);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "8px 4px",
+                    borderRadius: 999,
+                    border: "1px solid " + (etapaVenda === etapa.chave ? "var(--gold)" : "var(--border)"),
+                    background: etapaVenda === etapa.chave ? "var(--gold-soft)" : "transparent",
+                    color: "var(--text)",
+                    fontSize: "0.76rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {etapa.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="sheet-full-body">
+              {etapaVenda === "produtos" && (
+                <>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 14,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid var(--border)",
+                      background: revendedor ? "var(--gold-soft)" : "transparent",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={revendedor}
+                      onChange={(e) => alternarRevendedor(e.target.checked)}
+                    />
+                    <span style={{ fontSize: "0.86rem" }}>
+                      Venda para revendedor — usa o valor de custo
+                    </span>
+                  </label>
+
+                  <input
+                    className="search-input"
+                    placeholder="Buscar produto..."
+                    value={buscaProduto}
+                    onChange={(e) => setBuscaProduto(e.target.value)}
+                    style={{ marginBottom: 12 }}
+                  />
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: 8,
+                      maxHeight: 200,
+                      overflowY: "auto",
+                      marginBottom: 16,
+                    }}
+                  >
+                    {produtosFiltrados.map((p) => {
+                      const disponivel = estoqueDisponivel(p);
+                      const precoUsar = revendedor ? p.custo : p.preco;
+                      return (
+                        <div
+                          key={p.id}
+                          className="cart-line"
+                          style={{
+                            cursor: disponivel > 0 ? "pointer" : "not-allowed",
+                            opacity: disponivel > 0 ? 1 : 0.45,
+                          }}
+                          onClick={() => {
+                            if (disponivel <= 0) return;
+                            setCarrinho((itens) => {
+                              const existente = itens.find((i) => i.produtoId === p.id);
+                              if (existente) {
+                                if (existente.quantidade >= disponivel) return itens;
+                                return itens.map((i) =>
+                                  i.produtoId === p.id
+                                    ? { ...i, quantidade: i.quantidade + 1, precoUnitario: precoUsar }
+                                    : i
+                                );
+                              }
+                              return [
+                                ...itens,
+                                { produtoId: p.id, nome: p.nome, quantidade: 1, precoUnitario: precoUsar },
+                              ];
+                            });
+                          }}
+                        >
+                          <span>
+                            {p.nome}{" "}
+                            <span style={{ color: "var(--muted)", fontSize: "0.76rem" }}>
+                              ({disponivel} un.)
+                            </span>
+                          </span>
+                          <span>{currency(precoUsar)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
+
+                  {carrinho.length > 0 && (
+                    <div style={{ marginBottom: 16 }}>
+                      <div className="entrada-secao-titulo">
+                        Itens desta venda ({carrinho.length})
+                      </div>
+                      {carrinho.map((item) => (
+                        <div key={item.produtoId} className="cart-line">
+                          <span>{item.nome}</span>
+                          <div className="qty-control">
+                            <button onClick={() => ajustarQtdCarrinho(item.produtoId, -1)}>−</button>
+                            <span style={{ minWidth: 16, textAlign: "center" }}>{item.quantidade}</span>
+                            <button onClick={() => ajustarQtdCarrinho(item.produtoId, 1)}>+</button>
+                          </div>
+                        </div>
+                      ))}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginTop: 10,
+                          paddingTop: 10,
+                          borderTop: "1px solid var(--border)",
+                          fontWeight: 700,
+                        }}
+                      >
+                        <span>Total</span>
+                        <span className="value accent" style={{ fontSize: "1.05rem" }}>
+                          {currency(totalCarrinho)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {etapaVenda === "cliente" && (
+                <>
+                  <div className="form-row">
+                    <label>Cliente cadastrado</label>
+                    {clienteEscolhido ? (
+                      <div
+                        className="cart-line"
+                        style={{
+                          background: "var(--panel-2)",
+                          border: "1px solid var(--gold)",
+                          borderRadius: 10,
+                          padding: "10px 12px",
+                        }}
+                      >
+                        <span>{clienteEscolhido.nome}</span>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => {
+                            setClienteSelecionado("");
+                            setBuscaCliente("");
+                          }}
+                        >
+                          Trocar
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          className="search-input"
+                          placeholder="Buscar por nome ou WhatsApp..."
+                          value={buscaCliente}
+                          onChange={(e) => setBuscaCliente(e.target.value)}
+                        />
+                        {buscaCliente.trim() !== "" && (
+                          <div
+                            style={{
+                              display: "grid",
+                              gap: 4,
+                              maxHeight: 240,
+                              overflowY: "auto",
+                              marginTop: 8,
+                            }}
+                          >
+                            {resultadosBuscaCliente.length === 0 ? (
+                              <div className="empty-state" style={{ padding: "12px 0" }}>
+                                Nenhum cliente encontrado — vai como cliente avulso.
+                              </div>
+                            ) : (
+                              resultadosBuscaCliente.map((c) => (
+                                <div
+                                  key={c.id}
+                                  className="cart-line"
+                                  style={{ cursor: "pointer" }}
+                                  onClick={() => {
+                                    setClienteSelecionado(c.id);
+                                    setBuscaCliente("");
+                                  }}
+                                >
+                                  <span>{c.nome}</span>
+                                  {c.telefone && (
+                                    <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+                                      {c.telefone}
+                                    </span>
+                                  )}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  {!clienteSelecionado && (
+                    <div className="form-row">
+                      <label>Nome do cliente avulso (opcional)</label>
+                      <input
+                        className="text-input"
+                        value={clienteAvulso}
+                        onChange={(e) => setClienteAvulso(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {etapaVenda === "pagamento" && (
+                <>
+                  <div className="form-row">
+                    <label>Forma de pagamento</label>
+                    <select
+                      className="select-input"
+                      value={formaPagamento}
+                      onChange={(e) => setFormaPagamento(e.target.value)}
+                    >
+                      <option>Pix</option>
+                      <option>Dinheiro</option>
+                      <option>Cartão de débito</option>
+                      <option>Cartão de crédito</option>
+                      <option>A receber</option>
+                    </select>
+                  </div>
+                  {formaPagamento === "A receber" && (
+                    <div className="form-row">
+                      <label>Lembrete de cobrança (opcional)</label>
+                      <input
+                        type="date"
+                        className="text-input"
+                        value={lembreteCobranca}
+                        onChange={(e) => setLembreteCobranca(e.target.value)}
+                      />
+                      <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginTop: 4 }}>
+                        Na data escolhida, a cobrança aparece como tarefa no Início.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="sheet-full-footer">
+              {carrinho.length > 0 && (
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
-                    marginTop: 10,
-                    paddingTop: 10,
-                    borderTop: "1px solid var(--border)",
-                    fontWeight: 700,
+                    fontSize: "0.82rem",
+                    color: "var(--muted)",
+                    marginBottom: 8,
                   }}
                 >
                   <span>Total</span>
-                  <span className="value accent" style={{ fontSize: "1.05rem" }}>
+                  <span style={{ color: "var(--text)", fontWeight: 700 }}>
                     {currency(totalCarrinho)}
                   </span>
                 </div>
-              </div>
-            )}
+              )}
+              <div className="form-actions">
+                {etapaVenda === "produtos" ? (
+                  <button className="btn btn-ghost" disabled={salvando} onClick={fecharSheet}>
+                    Cancelar
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-ghost"
+                    disabled={salvando}
+                    onClick={() =>
+                      setEtapaVenda(etapaVenda === "pagamento" ? "cliente" : "produtos")
+                    }
+                  >
+                    Voltar
+                  </button>
+                )}
 
-            <div className="form-grid">
-              <div className="form-row">
-                <label>Cliente cadastrado</label>
-                {clienteEscolhido ? (
-                  <div
-                    className="cart-line"
-                    style={{
-                      background: "var(--panel-2)",
-                      border: "1px solid var(--gold)",
-                      borderRadius: 10,
-                      padding: "10px 12px",
+                {etapaVenda !== "pagamento" ? (
+                  <button
+                    className="btn btn-primary"
+                    disabled={carrinho.length === 0}
+                    onClick={() => setEtapaVenda(etapaVenda === "produtos" ? "cliente" : "pagamento")}
+                  >
+                    Avançar
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-primary"
+                    disabled={carrinho.length === 0 || salvando}
+                    onClick={async () => {
+                      if (carrinho.length === 0) return;
+                      setSalvando(true);
+                      const cliente = clientes.find((c) => c.id === clienteSelecionado);
+                      const dadosVenda = {
+                        clienteId: cliente ? cliente.id : null,
+                        clienteNome: cliente ? cliente.nome : clienteAvulso.trim() || "Cliente avulso",
+                        itens: carrinho,
+                        formaPagamento,
+                        tipoVenda: revendedor ? ("revendedor" as const) : ("cliente" as const),
+                        lembreteCobranca: lembreteCobranca || null,
+                      };
+                      if (vendaEditando) {
+                        await atualizarVenda(vendaEditando.id, dadosVenda);
+                      } else {
+                        await registrarVenda(dadosVenda);
+                      }
+                      setSalvando(false);
+                      fecharSheet();
+                      await recarregar();
                     }}
                   >
-                    <span>{clienteEscolhido.nome}</span>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => {
-                        setClienteSelecionado("");
-                        setBuscaCliente("");
-                      }}
-                    >
-                      Trocar
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <input
-                      className="search-input"
-                      placeholder="Buscar cliente pelo nome..."
-                      value={buscaCliente}
-                      onChange={(e) => setBuscaCliente(e.target.value)}
-                    />
-                    {buscaCliente.trim() !== "" && (
-                      <div
-                        style={{
-                          display: "grid",
-                          gap: 4,
-                          maxHeight: 200,
-                          overflowY: "auto",
-                          marginTop: 8,
-                        }}
-                      >
-                        {resultadosBuscaCliente.length === 0 ? (
-                          <div className="empty-state" style={{ padding: "12px 0" }}>
-                            Nenhum cliente encontrado — vai como cliente avulso.
-                          </div>
-                        ) : (
-                          resultadosBuscaCliente.map((c) => (
-                            <div
-                              key={c.id}
-                              className="cart-line"
-                              style={{ cursor: "pointer" }}
-                              onClick={() => {
-                                setClienteSelecionado(c.id);
-                                setBuscaCliente("");
-                              }}
-                            >
-                              <span>{c.nome}</span>
-                              {c.telefone && (
-                                <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-                                  {c.telefone}
-                                </span>
-                              )}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </>
+                    {salvando
+                      ? "Salvando..."
+                      : vendaEditando
+                      ? "Salvar alterações"
+                      : "Finalizar venda"}
+                  </button>
                 )}
               </div>
-              {!clienteSelecionado && (
-                <div className="form-row">
-                  <label>Nome do cliente avulso (opcional)</label>
-                  <input
-                    className="text-input"
-                    value={clienteAvulso}
-                    onChange={(e) => setClienteAvulso(e.target.value)}
-                  />
-                </div>
-              )}
-              <div className="form-row">
-                <label>Forma de pagamento</label>
-                <select
-                  className="select-input"
-                  value={formaPagamento}
-                  onChange={(e) => setFormaPagamento(e.target.value)}
-                >
-                  <option>Pix</option>
-                  <option>Dinheiro</option>
-                  <option>Cartão de débito</option>
-                  <option>Cartão de crédito</option>
-                  <option>A receber</option>
-                </select>
-              </div>
-              {formaPagamento === "A receber" && (
-                <div className="form-row">
-                  <label>Lembrete de cobrança (opcional)</label>
-                  <input
-                    type="date"
-                    className="text-input"
-                    value={lembreteCobranca}
-                    onChange={(e) => setLembreteCobranca(e.target.value)}
-                  />
-                  <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginTop: 4 }}>
-                    Na data escolhida, a cobrança aparece como tarefa no Início.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="form-actions">
-              <button className="btn btn-ghost" disabled={salvando} onClick={fecharSheet}>
-                Cancelar
-              </button>
-              <button
-                className="btn btn-primary"
-                disabled={carrinho.length === 0 || salvando}
-                onClick={async () => {
-                  if (carrinho.length === 0) return;
-                  setSalvando(true);
-                  const cliente = clientes.find((c) => c.id === clienteSelecionado);
-                  const dadosVenda = {
-                    clienteId: cliente ? cliente.id : null,
-                    clienteNome: cliente ? cliente.nome : clienteAvulso.trim() || "Cliente avulso",
-                    itens: carrinho,
-                    formaPagamento,
-                    tipoVenda: revendedor ? ("revendedor" as const) : ("cliente" as const),
-                    lembreteCobranca: lembreteCobranca || null,
-                  };
-                  if (vendaEditando) {
-                    await atualizarVenda(vendaEditando.id, dadosVenda);
-                  } else {
-                    await registrarVenda(dadosVenda);
-                  }
-                  setSalvando(false);
-                  fecharSheet();
-                  await recarregar();
-                }}
-              >
-                {salvando
-                  ? "Salvando..."
-                  : vendaEditando
-                  ? "Salvar alterações"
-                  : "Finalizar venda"}
-              </button>
             </div>
           </div>
         </div>
