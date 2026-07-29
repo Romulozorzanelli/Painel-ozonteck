@@ -584,6 +584,32 @@ button {
   color: var(--muted);
   flex-shrink: 0;
 }
+.tarefa-grupo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 4px;
+  cursor: pointer;
+}
+.tarefa-grupo-header + .tarefa-grupo-header,
+.tarefa-grupo-corpo + .tarefa-grupo-header {
+  border-top: 1px solid rgba(148, 163, 197, 0.09);
+}
+.tarefa-grupo-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.tarefa-grupo-seta {
+  color: var(--muted);
+  font-size: 0.7rem;
+  transition: transform 0.15s ease;
+}
+.tarefa-grupo-corpo {
+  padding-left: 4px;
+}
 .side-menu-overlay {
   position: fixed;
   inset: 0;
