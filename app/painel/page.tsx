@@ -2984,6 +2984,7 @@ function TabVendas({
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [clienteSelecionado, setClienteSelecionado] = useState("");
+  const [buscaCliente, setBuscaCliente] = useState("");
   const [clienteAvulso, setClienteAvulso] = useState("");
   const [formaPagamento, setFormaPagamento] = useState("Pix");
   const [lembreteCobranca, setLembreteCobranca] = useState("");
@@ -3028,6 +3029,7 @@ function TabVendas({
       setVendaEditando(null);
       setCarrinho([]);
       setClienteSelecionado(clientePreSelecionado);
+      setBuscaCliente("");
       setClienteAvulso("");
       setFormaPagamento("Pix");
       setLembreteCobranca("");
@@ -3044,6 +3046,7 @@ function TabVendas({
       if (produto) {
         setVendaEditando(null);
         setClienteSelecionado("");
+        setBuscaCliente("");
         setClienteAvulso("");
         setFormaPagamento("Pix");
         setLembreteCobranca("");
@@ -3106,6 +3109,7 @@ function TabVendas({
     setVendaEditando(null);
     setCarrinho([]);
     setClienteSelecionado("");
+    setBuscaCliente("");
     setClienteAvulso("");
     setFormaPagamento("Pix");
     setLembreteCobranca("");
@@ -3117,6 +3121,7 @@ function TabVendas({
     setVendaEditando(v);
     setCarrinho(v.itens.map((i) => ({ ...i })));
     setClienteSelecionado(v.clienteId ?? "");
+    setBuscaCliente("");
     setClienteAvulso(v.clienteId ? "" : v.clienteNome);
     setFormaPagamento(v.formaPagamento);
     setLembreteCobranca(v.lembreteCobranca ?? "");
@@ -3129,6 +3134,7 @@ function TabVendas({
     setVendaEditando(null);
     setCarrinho([]);
     setClienteSelecionado("");
+    setBuscaCliente("");
     setClienteAvulso("");
     setLembreteCobranca("");
     setRevendedor(false);
@@ -3138,6 +3144,12 @@ function TabVendas({
     (s, i) => s + i.quantidade * i.precoUnitario,
     0
   );
+  const clienteEscolhido = clientes.find((c) => c.id === clienteSelecionado);
+  const resultadosBuscaCliente = (() => {
+    const termo = buscaCliente.trim().toLowerCase();
+    if (!termo) return [];
+    return clientes.filter((c) => c.nome.toLowerCase().includes(termo)).slice(0, 30);
+  })();
   const vendasHoje = vendas.filter(
     (v) =>
       v.status === "concluida" &&
@@ -3578,18 +3590,74 @@ function TabVendas({
             <div className="form-grid">
               <div className="form-row">
                 <label>Cliente cadastrado</label>
-                <select
-                  className="select-input"
-                  value={clienteSelecionado}
-                  onChange={(e) => setClienteSelecionado(e.target.value)}
-                >
-                  <option value="">— Cliente avulso —</option>
-                  {clientes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nome}
-                    </option>
-                  ))}
-                </select>
+                {clienteEscolhido ? (
+                  <div
+                    className="cart-line"
+                    style={{
+                      background: "var(--panel-2)",
+                      border: "1px solid var(--gold)",
+                      borderRadius: 10,
+                      padding: "10px 12px",
+                    }}
+                  >
+                    <span>{clienteEscolhido.nome}</span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        setClienteSelecionado("");
+                        setBuscaCliente("");
+                      }}
+                    >
+                      Trocar
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      className="search-input"
+                      placeholder="Buscar cliente pelo nome..."
+                      value={buscaCliente}
+                      onChange={(e) => setBuscaCliente(e.target.value)}
+                    />
+                    {buscaCliente.trim() !== "" && (
+                      <div
+                        style={{
+                          display: "grid",
+                          gap: 4,
+                          maxHeight: 200,
+                          overflowY: "auto",
+                          marginTop: 8,
+                        }}
+                      >
+                        {resultadosBuscaCliente.length === 0 ? (
+                          <div className="empty-state" style={{ padding: "12px 0" }}>
+                            Nenhum cliente encontrado — vai como cliente avulso.
+                          </div>
+                        ) : (
+                          resultadosBuscaCliente.map((c) => (
+                            <div
+                              key={c.id}
+                              className="cart-line"
+                              style={{ cursor: "pointer" }}
+                              onClick={() => {
+                                setClienteSelecionado(c.id);
+                                setBuscaCliente("");
+                              }}
+                            >
+                              <span>{c.nome}</span>
+                              {c.telefone && (
+                                <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+                                  {c.telefone}
+                                </span>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
               {!clienteSelecionado && (
                 <div className="form-row">
