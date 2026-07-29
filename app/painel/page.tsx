@@ -1976,7 +1976,7 @@ function TabEstoque({
                       {itensEntrada.reduce((s, i) => s + i.quantidade, 0)} un. no total
                     </div>
                   )}
-                  <div style={{ display: "grid", gap: 6, marginBottom: 16 }}>
+                  <div style={{ display: "flex", flexDirection: "column", marginBottom: 16 }}>
                     {resultadosEntrada.length === 0 ? (
                       <div className="empty-state" style={{ padding: "20px 0" }}>
                         Nenhum produto encontrado.
@@ -1984,26 +1984,29 @@ function TabEstoque({
                     ) : (
                       resultadosEntrada.map((p) => {
                         const item = itensEntrada.find((i) => i.produto.id === p.id);
-                        if (item) {
-                          return (
-                            <div
-                              key={p.id}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                gap: 10,
-                                padding: "8px 10px",
-                                borderRadius: 10,
-                                background: "var(--panel-2)",
-                                border: "1px solid var(--gold)",
-                              }}
-                            >
-                              <span style={{ flex: 1, fontSize: "0.86rem" }}>{p.nome}</span>
-                              <div className="qty-control">
+                        return (
+                          <div
+                            key={p.id}
+                            className={"produto-linha" + (item ? " selecionada" : "")}
+                            onClick={() => {
+                              if (!item) adicionarItemEntrada(p);
+                            }}
+                          >
+                            {p.imagem ? (
+                              <img src={p.imagem} className="produto-mini-thumb" alt="" />
+                            ) : (
+                              <div className="produto-mini-thumb-placeholder">
+                                {p.nome.slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                            <span className="produto-linha-nome">{p.nome}</span>
+                            {item ? (
+                              <div className="qty-control" onClick={(e) => e.stopPropagation()}>
                                 <button
                                   onClick={() =>
-                                    atualizarQtdEntrada(p.id, item.quantidade - 1)
+                                    item.quantidade <= 1
+                                      ? removerItemEntrada(p.id)
+                                      : atualizarQtdEntrada(p.id, item.quantidade - 1)
                                   }
                                 >
                                   −
@@ -2011,34 +2014,22 @@ function TabEstoque({
                                 <span style={{ minWidth: 20, textAlign: "center" }}>
                                   {item.quantidade}
                                 </span>
-                                <button
-                                  onClick={() =>
-                                    atualizarQtdEntrada(p.id, item.quantidade + 1)
-                                  }
-                                >
+                                <button onClick={() => atualizarQtdEntrada(p.id, item.quantidade + 1)}>
                                   +
                                 </button>
                               </div>
+                            ) : (
                               <button
-                                className="btn btn-ghost btn-icon"
-                                onClick={() => removerItemEntrada(p.id)}
+                                type="button"
+                                className="produto-linha-add"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  adicionarItemEntrada(p);
+                                }}
                               >
-                                ×
+                                +
                               </button>
-                            </div>
-                          );
-                        }
-                        return (
-                          <div
-                            key={p.id}
-                            className="cart-line"
-                            style={{ cursor: "pointer" }}
-                            onClick={() => adicionarItemEntrada(p)}
-                          >
-                            <span>{p.nome}</span>
-                            <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-                              + adicionar
-                            </span>
+                            )}
                           </div>
                         );
                       })
@@ -2128,6 +2119,21 @@ function TabEstoque({
                             }}
                           >
                             <span style={{ flex: 1, fontSize: "0.86rem" }}>
+                              {item.produto.imagem ? (
+                                <img
+                                  src={item.produto.imagem}
+                                  className="produto-mini-thumb"
+                                  alt=""
+                                  style={{ display: "inline-block", verticalAlign: "middle", marginRight: 8 }}
+                                />
+                              ) : (
+                                <span
+                                  className="produto-mini-thumb-placeholder"
+                                  style={{ display: "inline-flex", verticalAlign: "middle", marginRight: 8 }}
+                                >
+                                  {item.produto.nome.slice(0, 2).toUpperCase()}
+                                </span>
+                              )}
                               {item.produto.nome}
                             </span>
                             <div className="qty-control">
@@ -3665,10 +3671,8 @@ function TabVendas({
                       <div
                         className="cart-line"
                         style={{
-                          background: "var(--panel-2)",
-                          border: "1px solid var(--gold)",
-                          borderRadius: 10,
-                          padding: "10px 12px",
+                          borderLeft: "2px solid var(--blue-light)",
+                          paddingLeft: 10,
                         }}
                       >
                         <span>{clienteEscolhido.nome}</span>
