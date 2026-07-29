@@ -37,6 +37,7 @@ import {
   marcarIndicacaoPedida,
   marcarInatividadeContatada,
   marcarAniversarioPedido,
+  limparLembreteCobranca,
   getTemplates,
   salvarTemplate,
   restaurarTemplatePadrao,
@@ -110,6 +111,11 @@ function mensagemPedirAniversario(nome: string): string {
   return `Oi ${nome}! Estou atualizando meu cadastro de clientes aqui 📋 Você pode me passar sua data de aniversário (dia e mês)? Sempre preparo um agrado especial pros meus clientes nessa data! 🎁`;
 }
 
+function mensagemCobranca(nome: string, valor?: string): string {
+  const referencia = valor ? ` no valor de ${valor}` : "";
+  return `Oi ${nome}! Passando pra lembrar que ainda está em aberto um pagamento${referencia}. Consegue resolver hoje? Qualquer dúvida sobre o pedido, me chama! 💙`;
+}
+
 // Tipos de tarefa que têm mensagem editável (fora do fluxo especial de
 // "cadastro incompleto", que não manda mensagem — não tem telefone ainda).
 const TIPOS_TAREFA_MENSAGEM: { tipo: TipoTarefa; label: string }[] = [
@@ -120,33 +126,42 @@ const TIPOS_TAREFA_MENSAGEM: { tipo: TipoTarefa; label: string }[] = [
   { tipo: "indicacao", label: "Pedir indicação" },
   { tipo: "inativo", label: "Cliente inativo" },
   { tipo: "pedir_aniversario", label: "Pedir data de aniversário" },
+  { tipo: "cobranca", label: "Cobrança (a receber)" },
 ];
 
-function mensagemPadraoPorTipo(tipo: TipoTarefa, nome: string, ultimoProduto?: string): string {
+function mensagemPadraoPorTipo(
+  tipo: TipoTarefa,
+  nome: string,
+  ultimoProduto?: string,
+  valor?: string
+): string {
   if (tipo === "novo_cadastro") return mensagemBoasVindas(nome);
   if (tipo === "aniversario") return mensagemAniversario(nome);
   if (tipo === "renovar") return mensagemRenovarPedido(nome, ultimoProduto);
   if (tipo === "indicacao") return mensagemIndicacao(nome, ultimoProduto);
   if (tipo === "inativo") return mensagemInativo(nome);
   if (tipo === "pedir_aniversario") return mensagemPedirAniversario(nome);
+  if (tipo === "cobranca") return mensagemCobranca(nome, valor);
   return mensagemPosVenda(nome);
 }
 
 // Gera a mensagem final: usa o template customizado da conta se existir
-// (trocando {nome} e {produto}), senão cai no texto padrao.
+// (trocando {nome}, {produto} e {valor}), senão cai no texto padrao.
 function gerarMensagem(
   tipo: TipoTarefa,
   nome: string,
   ultimoProduto?: string,
-  templates?: Record<string, string>
+  templates?: Record<string, string>,
+  valor?: string
 ): string {
   const customizado = templates?.[tipo];
   if (customizado) {
     return customizado
       .replace(/\{nome\}/g, nome)
-      .replace(/\{produto\}/g, ultimoProduto || "os produtos");
+      .replace(/\{produto\}/g, ultimoProduto || "os produtos")
+      .replace(/\{valor\}/g, valor || "o valor pendente");
   }
-  return mensagemPadraoPorTipo(tipo, nome, ultimoProduto);
+  return mensagemPadraoPorTipo(tipo, nome, ultimoProduto, valor);
 }
 
 function rotuloTempoDesde(data: Date, hoje: Date): string {
@@ -190,7 +205,8 @@ type TipoTarefa =
   | "indicacao"
   | "inativo"
   | "pedir_aniversario"
-  | "cadastro_incompleto";
+  | "cadastro_incompleto"
+  | "cobranca";
 
 type Tarefa = {
   id: string;
@@ -212,6 +228,7 @@ const CONFIG_TAREFA: Record<TipoTarefa, { label: string; emoji: string; badge: s
   pos_venda: { label: "Pós-venda", emoji: "💬", badge: "badge-ok" },
   indicacao: { label: "Pedir indicação", emoji: "🤝", badge: "badge-info" },
   inativo: { label: "Cliente inativo", emoji: "😴", badge: "badge-low" },
+  cobranca: { label: "Cobrança", emoji: "💰", badge: "badge-low" },
 };
 
 const LOGO_URL =
@@ -663,6 +680,40 @@ function TabInicio({
       };
     });
 
+  // Cobrança: vendas "A receber" com um lembrete definido que já chegou (ou
+  // passou). Some sozinha assim que a venda é marcada como recebida ou
+  // quando a tarefa é concluída (limpa o lembrete daquela venda específica).
+  const tarefasCobranca: Tarefa[] = vendasConcluidas
+    .filter((v) => {
+      if (v.formaPagamento !== "A receber" || !v.lembreteCobranca || !v.clienteId) return false;
+      const cliente = clientes.find((c) => c.id === v.clienteId);
+      if (!cliente?.telefone) return false;
+      return inicioDoDia(new Date(v.lembreteCobranca)) <= inicioDoDia(agora);
+    })
+    .sort(
+      (a, b) =>
+        new Date(a.lembreteCobranca!).getTime() - new Date(b.lembreteCobranca!).getTime()
+    )
+    .map((v) => {
+      const cliente = clientes.find((c) => c.id === v.clienteId)!;
+      return {
+        id: `cobranca-${v.id}`,
+        tipo: "cobranca" as const,
+        clienteId: cliente.id,
+        clienteNome: cliente.nome,
+        telefone: cliente.telefone,
+        dataReferencia: rotuloRelativo(new Date(v.lembreteCobranca!), agora),
+        mensagemPadrao: gerarMensagem(
+          "cobranca",
+          primeiroNome(cliente.nome),
+          undefined,
+          templates,
+          currency(v.total)
+        ),
+        vendaId: v.id,
+      };
+    });
+
   // Cliente inativo: comprou pelo menos uma vez, mas nao volta ha 60+ dias.
   // Reseta sozinho sempre que ele compra de novo (compara com a data da
   // ultima venda, nao so uma flag fixa).
@@ -731,6 +782,7 @@ function TabInicio({
     ...tarefasNovoCadastro,
     ...tarefasAniversario,
     ...tarefasPedirAniversario,
+    ...tarefasCobranca,
     ...tarefasRenovar,
     ...tarefasPosVenda,
     ...tarefasIndicacao,
@@ -747,6 +799,8 @@ function TabInicio({
         setVendas(await marcarPosVendaContatado(t.vendaId));
       } else if (t.tipo === "indicacao" && t.vendaId) {
         setVendas(await marcarIndicacaoPedida(t.vendaId));
+      } else if (t.tipo === "cobranca" && t.vendaId) {
+        setVendas(await limparLembreteCobranca(t.vendaId));
       } else if (t.tipo === "novo_cadastro") {
         setClientes(await marcarBoasVindasContatado(t.clienteId));
       } else if (t.tipo === "inativo") {
@@ -2932,6 +2986,7 @@ function TabVendas({
   const [clienteSelecionado, setClienteSelecionado] = useState("");
   const [clienteAvulso, setClienteAvulso] = useState("");
   const [formaPagamento, setFormaPagamento] = useState("Pix");
+  const [lembreteCobranca, setLembreteCobranca] = useState("");
   const [buscaProduto, setBuscaProduto] = useState("");
   const [carrinho, setCarrinho] = useState<ItemVenda[]>([]);
   const [revendedor, setRevendedor] = useState(false);
@@ -2975,6 +3030,7 @@ function TabVendas({
       setClienteSelecionado(clientePreSelecionado);
       setClienteAvulso("");
       setFormaPagamento("Pix");
+      setLembreteCobranca("");
       setRevendedor(false);
       setSheetAberto(true);
       aoConsumirPreSelecao?.();
@@ -2990,6 +3046,7 @@ function TabVendas({
         setClienteSelecionado("");
         setClienteAvulso("");
         setFormaPagamento("Pix");
+        setLembreteCobranca("");
         setRevendedor(false);
         setCarrinho([
           { produtoId: produto.id, nome: produto.nome, quantidade: 1, precoUnitario: produto.preco },
@@ -3051,6 +3108,7 @@ function TabVendas({
     setClienteSelecionado("");
     setClienteAvulso("");
     setFormaPagamento("Pix");
+    setLembreteCobranca("");
     setRevendedor(false);
     setSheetAberto(true);
   }
@@ -3061,6 +3119,7 @@ function TabVendas({
     setClienteSelecionado(v.clienteId ?? "");
     setClienteAvulso(v.clienteId ? "" : v.clienteNome);
     setFormaPagamento(v.formaPagamento);
+    setLembreteCobranca(v.lembreteCobranca ?? "");
     setRevendedor(v.tipoVenda === "revendedor");
     setSheetAberto(true);
   }
@@ -3071,6 +3130,7 @@ function TabVendas({
     setCarrinho([]);
     setClienteSelecionado("");
     setClienteAvulso("");
+    setLembreteCobranca("");
     setRevendedor(false);
   }
 
@@ -3178,6 +3238,16 @@ function TabVendas({
                 {new Date(detalhes.data).toLocaleString("pt-BR")} · {detalhes.formaPagamento}
               </span>
             </div>
+
+            {detalhes.formaPagamento === "A receber" && (
+              <p style={{ color: "var(--muted)", fontSize: "0.8rem", marginBottom: 12 }}>
+                {detalhes.lembreteCobranca
+                  ? `Lembrete de cobrança em ${new Date(
+                      detalhes.lembreteCobranca + "T00:00:00"
+                    ).toLocaleDateString("pt-BR")}.`
+                  : "Sem lembrete de cobrança definido — edite a venda pra adicionar uma data."}
+              </p>
+            )}
 
             <div style={{ marginBottom: 16 }}>
               {detalhes.itens.map((i) => (
@@ -3545,6 +3615,20 @@ function TabVendas({
                   <option>A receber</option>
                 </select>
               </div>
+              {formaPagamento === "A receber" && (
+                <div className="form-row">
+                  <label>Lembrete de cobrança (opcional)</label>
+                  <input
+                    type="date"
+                    className="text-input"
+                    value={lembreteCobranca}
+                    onChange={(e) => setLembreteCobranca(e.target.value)}
+                  />
+                  <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginTop: 4 }}>
+                    Na data escolhida, a cobrança aparece como tarefa no Início.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="form-actions">
@@ -3564,6 +3648,7 @@ function TabVendas({
                     itens: carrinho,
                     formaPagamento,
                     tipoVenda: revendedor ? ("revendedor" as const) : ("cliente" as const),
+                    lembreteCobranca: lembreteCobranca || null,
                   };
                   if (vendaEditando) {
                     await atualizarVenda(vendaEditando.id, dadosVenda);
@@ -4710,8 +4795,8 @@ function TabTemplates() {
       <div className="panel-card">
         <h2 className="panel-title">Mensagens de tarefa</h2>
         <p style={{ color: "var(--muted)", fontSize: "0.82rem", marginBottom: 12 }}>
-          Personalize o texto sugerido de cada tipo de tarefa. Use {"{nome}"} e{" "}
-          {"{produto}"} que o sistema substitui automaticamente ao enviar.
+          Personalize o texto sugerido de cada tipo de tarefa. Use {"{nome}"},{" "}
+          {"{produto}"} e {"{valor}"} que o sistema substitui automaticamente ao enviar.
         </p>
         <div className="form-row">
           <label>Tipo de mensagem</label>
