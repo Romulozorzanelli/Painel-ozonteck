@@ -3086,11 +3086,19 @@ function TabVendas({
 
   const produtosFiltrados = useMemo(() => {
     const termo = buscaProduto.trim().toLowerCase();
-    const disponiveis = produtos.filter((p) => p.ativo && p.estoque > 0);
+    // Um produto entra na lista se estiver ativo com estoque disponível,
+    // OU se já fizer parte do carrinho atual (caso de edição de venda:
+    // o item pode ter zerado o estoque ou sido desativado depois da venda,
+    // mas ainda precisa aparecer pra poder ser visto/ajustado/removido).
+    const disponiveis = produtos.filter((p) => {
+      const jaNoCarrinho = carrinho.some((i) => i.produtoId === p.id);
+      if (jaNoCarrinho) return true;
+      return p.ativo && estoqueDisponivel(p) > 0;
+    });
     return termo
       ? disponiveis.filter((p) => p.nome.toLowerCase().includes(termo))
       : disponiveis;
-  }, [produtos, buscaProduto]);
+  }, [produtos, buscaProduto, carrinho, vendaEditando]);
 
   function ajustarQtdCarrinho(produtoId: string, delta: number) {
     const produto = produtos.find((p) => p.id === produtoId);
