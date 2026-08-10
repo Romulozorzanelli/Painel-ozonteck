@@ -109,6 +109,11 @@ export type ItemVenda = {
   precoUnitario: number;
 };
 
+export type PagamentoDividido = {
+  forma: string;
+  valor: number;
+};
+
 export type Venda = {
   id: string;
   data: string;
@@ -117,6 +122,7 @@ export type Venda = {
   itens: ItemVenda[];
   total: number;
   formaPagamento: string;
+  pagamentos: PagamentoDividido[] | null;
   status: "concluida" | "cancelada";
   tipoVenda: "cliente" | "revendedor";
   posVendaContatado: boolean;
@@ -188,6 +194,7 @@ function vendaFromRow(row: any): Venda {
     clienteNome: row.cliente_nome,
     total: Number(row.total),
     formaPagamento: row.forma_pagamento,
+    pagamentos: row.pagamentos ?? null,
     status: row.status,
     tipoVenda: row.tipo_venda ?? "cliente",
     posVendaContatado: row.pos_venda_contatado ?? false,
@@ -503,6 +510,7 @@ export async function registrarVenda(input: {
   clienteNome: string;
   itens: ItemVenda[];
   formaPagamento: string;
+  pagamentos?: PagamentoDividido[] | null;
   tipoVenda: "cliente" | "revendedor";
   lembreteCobranca?: string | null;
 }) {
@@ -516,6 +524,7 @@ export async function registrarVenda(input: {
       cliente_nome: input.clienteNome || "Cliente avulso",
       total,
       forma_pagamento: input.formaPagamento,
+      pagamentos: input.pagamentos ?? null,
       status: "concluida",
       tipo_venda: input.tipoVenda,
       lembrete_cobranca: input.formaPagamento === "A receber" ? input.lembreteCobranca || null : null,
@@ -559,6 +568,7 @@ export async function atualizarVenda(
     clienteNome: string;
     itens: ItemVenda[];
     formaPagamento: string;
+    pagamentos?: PagamentoDividido[] | null;
     tipoVenda: "cliente" | "revendedor";
     lembreteCobranca?: string | null;
   }
@@ -596,6 +606,7 @@ export async function atualizarVenda(
       cliente_nome: input.clienteNome || "Cliente avulso",
       total,
       forma_pagamento: input.formaPagamento,
+      pagamentos: input.pagamentos ?? null,
       status: "concluida",
       tipo_venda: input.tipoVenda,
       lembrete_cobranca: input.formaPagamento === "A receber" ? input.lembreteCobranca || null : null,
