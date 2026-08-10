@@ -345,6 +345,39 @@ export function normalizarTelefone(input: string): string {
   return `+${comDDI}`;
 }
 
+// Cadastro rápido de cliente, usado quando o lead aparece no meio da venda
+// e ainda não está na base. Diferente de upsertCliente (que devolve a lista
+// inteira recarregada, pra tela de Clientes), esta devolve só o cliente
+// recém-criado, já com o id, pra poder selecionar ele na venda na mesma hora.
+export async function criarClienteRapido(dados: {
+  nome: string;
+  telefone: string;
+}): Promise<Cliente> {
+  const supabase = createClient();
+  const telefone = normalizarTelefone(dados.telefone);
+
+  const { data, error } = await supabase
+    .from("clientes")
+    .insert({
+      nome: dados.nome,
+      telefone,
+      email: "",
+      origem: "Venda",
+      observacoes: "",
+      aniversario_dia: null,
+      aniversario_mes: null,
+      proximo_followup: null,
+      sexo: null,
+      em_relacionamento: null,
+      tem_filhos: null,
+    })
+    .select("*")
+    .single();
+
+  if (error || !data) throw error;
+  return clienteFromRow(data);
+}
+
 export async function upsertCliente(cliente: Cliente): Promise<Cliente[]> {
   const supabase = createClient();
   const telefone = normalizarTelefone(cliente.telefone);
