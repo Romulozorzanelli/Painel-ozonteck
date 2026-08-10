@@ -15,6 +15,7 @@ import {
   ajustarEstoque,
   getClientes,
   upsertCliente,
+  criarClienteRapido,
   removeCliente,
   getVendas,
   registrarVenda,
@@ -3009,7 +3010,31 @@ function TabVendas({
   const [salvando, setSalvando] = useState(false);
   const [processandoDetalheVenda, setProcessandoDetalheVenda] = useState(false);
   const [confirmandoRecebimento, setConfirmandoRecebimento] = useState(false);
+  const [cadastrandoCliente, setCadastrandoCliente] = useState(false);
+  const [novoClienteNome, setNovoClienteNome] = useState("");
+  const [novoClienteTelefone, setNovoClienteTelefone] = useState("");
+  const [salvandoNovoCliente, setSalvandoNovoCliente] = useState(false);
   const jaAtivouAntes = useRef(false);
+
+  async function salvarNovoClienteDaVenda() {
+    if (!novoClienteNome.trim() || salvandoNovoCliente) return;
+    setSalvandoNovoCliente(true);
+    try {
+      const criado = await criarClienteRapido({
+        nome: novoClienteNome.trim(),
+        telefone: novoClienteTelefone,
+      });
+      setClientes((atuais) => [criado, ...atuais]);
+      setClienteSelecionado(criado.id);
+      setBuscaCliente("");
+      setClienteAvulso("");
+      setCadastrandoCliente(false);
+      setNovoClienteNome("");
+      setNovoClienteTelefone("");
+    } finally {
+      setSalvandoNovoCliente(false);
+    }
+  }
 
   async function recarregar() {
     const [p, c, v] = await Promise.all([getProdutos(), getClientes(), getVendas()]);
@@ -3135,6 +3160,9 @@ function TabVendas({
     setLembreteCobranca("");
     setEtapaVenda("produtos");
     setRevendedor(false);
+    setCadastrandoCliente(false);
+    setNovoClienteNome("");
+    setNovoClienteTelefone("");
     setSheetAberto(true);
   }
 
@@ -3148,6 +3176,9 @@ function TabVendas({
     setLembreteCobranca(v.lembreteCobranca ?? "");
     setEtapaVenda("produtos");
     setRevendedor(v.tipoVenda === "revendedor");
+    setCadastrandoCliente(false);
+    setNovoClienteNome("");
+    setNovoClienteTelefone("");
     setSheetAberto(true);
   }
 
@@ -3161,6 +3192,9 @@ function TabVendas({
     setLembreteCobranca("");
     setEtapaVenda("produtos");
     setRevendedor(false);
+    setCadastrandoCliente(false);
+    setNovoClienteNome("");
+    setNovoClienteTelefone("");
   }
 
   const totalCarrinho = carrinho.reduce(
@@ -3716,7 +3750,7 @@ function TabVendas({
                           >
                             {resultadosBuscaCliente.length === 0 ? (
                               <div className="empty-state" style={{ padding: "12px 0" }}>
-                                Nenhum cliente encontrado — vai como cliente avulso.
+                                Nenhum cliente encontrado. Cadastre um novo cliente ou continue como cliente avulso.
                               </div>
                             ) : (
                               resultadosBuscaCliente.map((c) => (
@@ -3743,7 +3777,70 @@ function TabVendas({
                       </>
                     )}
                   </div>
-                  {!clienteSelecionado && (
+
+                  {!clienteSelecionado && !cadastrandoCliente && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      style={{ marginBottom: 14 }}
+                      onClick={() => {
+                        setCadastrandoCliente(true);
+                        setNovoClienteNome(buscaCliente.trim());
+                        setNovoClienteTelefone("");
+                      }}
+                    >
+                      + Cadastrar novo cliente
+                    </button>
+                  )}
+
+                  {!clienteSelecionado && cadastrandoCliente && (
+                    <div
+                      className="form-row"
+                      style={{
+                        borderLeft: "2px solid var(--blue-light)",
+                        paddingLeft: 10,
+                        marginBottom: 14,
+                      }}
+                    >
+                      <label>Nome do cliente</label>
+                      <input
+                        className="text-input"
+                        value={novoClienteNome}
+                        onChange={(e) => setNovoClienteNome(e.target.value)}
+                        placeholder="Nome completo"
+                      />
+                      <label style={{ marginTop: 10 }}>WhatsApp (opcional)</label>
+                      <input
+                        className="text-input"
+                        value={novoClienteTelefone}
+                        onChange={(e) => setNovoClienteTelefone(e.target.value)}
+                        placeholder="(27) 99999-9999"
+                      />
+                      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          disabled={!novoClienteNome.trim() || salvandoNovoCliente}
+                          onClick={salvarNovoClienteDaVenda}
+                        >
+                          {salvandoNovoCliente ? "Salvando..." : "Salvar e usar na venda"}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => {
+                            setCadastrandoCliente(false);
+                            setNovoClienteNome("");
+                            setNovoClienteTelefone("");
+                          }}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!clienteSelecionado && !cadastrandoCliente && (
                     <div className="form-row">
                       <label>Nome do cliente avulso (opcional)</label>
                       <input
