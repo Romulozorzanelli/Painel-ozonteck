@@ -2998,6 +2998,10 @@ function TabVendas({
   );
   const [clienteAvulso, setClienteAvulso] = useState("");
   const [formaPagamento, setFormaPagamento] = useState("Pix");
+  const [dividirPagamento, setDividirPagamento] = useState(false);
+  const [formaPagamento2, setFormaPagamento2] = useState("Dinheiro");
+  const [valorPagamento1, setValorPagamento1] = useState<number | "">("");
+  const [valorPagamento2, setValorPagamento2] = useState<number | "">("");
   const [lembreteCobranca, setLembreteCobranca] = useState("");
   const [buscaProduto, setBuscaProduto] = useState("");
   const [carrinho, setCarrinho] = useState<ItemVenda[]>([]);
@@ -3157,6 +3161,10 @@ function TabVendas({
     setBuscaCliente("");
     setClienteAvulso("");
     setFormaPagamento("Pix");
+    setDividirPagamento(false);
+    setFormaPagamento2("Dinheiro");
+    setValorPagamento1("");
+    setValorPagamento2("");
     setLembreteCobranca("");
     setEtapaVenda("produtos");
     setRevendedor(false);
@@ -3172,7 +3180,19 @@ function TabVendas({
     setClienteSelecionado(v.clienteId ?? "");
     setBuscaCliente("");
     setClienteAvulso(v.clienteId ? "" : v.clienteNome);
-    setFormaPagamento(v.formaPagamento);
+    if (v.pagamentos && v.pagamentos.length === 2) {
+      setDividirPagamento(true);
+      setFormaPagamento(v.pagamentos[0].forma);
+      setFormaPagamento2(v.pagamentos[1].forma);
+      setValorPagamento1(v.pagamentos[0].valor);
+      setValorPagamento2(v.pagamentos[1].valor);
+    } else {
+      setDividirPagamento(false);
+      setFormaPagamento(v.formaPagamento);
+      setFormaPagamento2("Dinheiro");
+      setValorPagamento1("");
+      setValorPagamento2("");
+    }
     setLembreteCobranca(v.lembreteCobranca ?? "");
     setEtapaVenda("produtos");
     setRevendedor(v.tipoVenda === "revendedor");
@@ -3189,6 +3209,10 @@ function TabVendas({
     setClienteSelecionado("");
     setBuscaCliente("");
     setClienteAvulso("");
+    setDividirPagamento(false);
+    setFormaPagamento2("Dinheiro");
+    setValorPagamento1("");
+    setValorPagamento2("");
     setLembreteCobranca("");
     setEtapaVenda("produtos");
     setRevendedor(false);
@@ -3201,6 +3225,10 @@ function TabVendas({
     (s, i) => s + i.quantidade * i.precoUnitario,
     0
   );
+  const somaPagamentoDividido =
+    (valorPagamento1 === "" ? 0 : valorPagamento1) + (valorPagamento2 === "" ? 0 : valorPagamento2);
+  const pagamentoDivididoValido =
+    !dividirPagamento || Math.abs(totalCarrinho - somaPagamentoDividido) < 0.01;
   const clienteEscolhido = clientes.find((c) => c.id === clienteSelecionado);
   const resultadosBuscaCliente = (() => {
     const termo = buscaCliente.trim().toLowerCase();
@@ -3324,6 +3352,25 @@ function TabVendas({
                     ).toLocaleDateString("pt-BR")}.`
                   : "Sem lembrete de cobrança definido — edite a venda pra adicionar uma data."}
               </p>
+            )}
+
+            {detalhes.pagamentos && detalhes.pagamentos.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                {detalhes.pagamentos.map((p, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: "0.8rem",
+                      color: "var(--muted)",
+                    }}
+                  >
+                    <span>{p.forma}</span>
+                    <span>{currency(p.valor)}</span>
+                  </div>
+                ))}
+              </div>
             )}
 
             <div style={{ marginBottom: 16 }}>
@@ -3855,21 +3902,117 @@ function TabVendas({
 
               {etapaVenda === "pagamento" && (
                 <>
-                  <div className="form-row">
-                    <label>Forma de pagamento</label>
-                    <select
-                      className="select-input"
-                      value={formaPagamento}
-                      onChange={(e) => setFormaPagamento(e.target.value)}
-                    >
-                      <option>Pix</option>
-                      <option>Dinheiro</option>
-                      <option>Cartão de débito</option>
-                      <option>Cartão de crédito</option>
-                      <option>A receber</option>
-                    </select>
-                  </div>
-                  {formaPagamento === "A receber" && (
+                  {!dividirPagamento ? (
+                    <div className="form-row">
+                      <label>Forma de pagamento</label>
+                      <select
+                        className="select-input"
+                        value={formaPagamento}
+                        onChange={(e) => setFormaPagamento(e.target.value)}
+                      >
+                        <option>Pix</option>
+                        <option>Dinheiro</option>
+                        <option>Cartão de débito</option>
+                        <option>Cartão de crédito</option>
+                        <option>A receber</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div style={{ display: "grid", gap: 12, marginBottom: 4 }}>
+                      <div className="form-row">
+                        <label>1ª forma de pagamento</label>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <select
+                            className="select-input"
+                            style={{ flex: 1.2 }}
+                            value={formaPagamento}
+                            onChange={(e) => setFormaPagamento(e.target.value)}
+                          >
+                            <option>Pix</option>
+                            <option>Dinheiro</option>
+                            <option>Cartão de débito</option>
+                            <option>Cartão de crédito</option>
+                          </select>
+                          <input
+                            className="text-input"
+                            style={{ flex: 1 }}
+                            type="number"
+                            step="0.01"
+                            placeholder="Valor"
+                            value={valorPagamento1}
+                            onChange={(e) =>
+                              setValorPagamento1(e.target.value === "" ? "" : Number(e.target.value))
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="form-row">
+                        <label>2ª forma de pagamento</label>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <select
+                            className="select-input"
+                            style={{ flex: 1.2 }}
+                            value={formaPagamento2}
+                            onChange={(e) => setFormaPagamento2(e.target.value)}
+                          >
+                            <option>Pix</option>
+                            <option>Dinheiro</option>
+                            <option>Cartão de débito</option>
+                            <option>Cartão de crédito</option>
+                          </select>
+                          <input
+                            className="text-input"
+                            style={{ flex: 1 }}
+                            type="number"
+                            step="0.01"
+                            placeholder="Valor"
+                            value={valorPagamento2}
+                            onChange={(e) =>
+                              setValorPagamento2(e.target.value === "" ? "" : Number(e.target.value))
+                            }
+                          />
+                        </div>
+                      </div>
+                      {(() => {
+                        const v1 = valorPagamento1 === "" ? 0 : valorPagamento1;
+                        const v2 = valorPagamento2 === "" ? 0 : valorPagamento2;
+                        const diferenca = totalCarrinho - (v1 + v2);
+                        if (Math.abs(diferenca) < 0.01) {
+                          return (
+                            <p style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
+                              Soma bate com o total da venda.
+                            </p>
+                          );
+                        }
+                        return (
+                          <p style={{ color: "#e0665a", fontSize: "0.78rem" }}>
+                            {diferenca > 0
+                              ? `Falta ${currency(diferenca)} pra completar o total.`
+                              : `${currency(Math.abs(diferenca))} a mais que o total da venda.`}
+                          </p>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ marginTop: dividirPagamento ? 4 : 10, marginBottom: 14 }}
+                    onClick={() => {
+                      const ligando = !dividirPagamento;
+                      setDividirPagamento(ligando);
+                      if (ligando) {
+                        setValorPagamento1(totalCarrinho);
+                        setValorPagamento2(0);
+                        if (formaPagamento === "A receber") setFormaPagamento("Pix");
+                      }
+                    }}
+                  >
+                    {dividirPagamento ? "Usar uma forma de pagamento só" : "+ Dividir em duas formas de pagamento"}
+                  </button>
+
+                  {!dividirPagamento && formaPagamento === "A receber" && (
                     <div className="form-row">
                       <label>Lembrete de cobrança (opcional)</label>
                       <input
@@ -3932,16 +4075,25 @@ function TabVendas({
                 ) : (
                   <button
                     className="btn btn-primary"
-                    disabled={carrinho.length === 0 || salvando}
+                    disabled={carrinho.length === 0 || salvando || !pagamentoDivididoValido}
                     onClick={async () => {
-                      if (carrinho.length === 0) return;
+                      if (carrinho.length === 0 || !pagamentoDivididoValido) return;
                       setSalvando(true);
                       const cliente = clientes.find((c) => c.id === clienteSelecionado);
+                      const pagamentos = dividirPagamento
+                        ? [
+                            { forma: formaPagamento, valor: valorPagamento1 === "" ? 0 : valorPagamento1 },
+                            { forma: formaPagamento2, valor: valorPagamento2 === "" ? 0 : valorPagamento2 },
+                          ]
+                        : null;
                       const dadosVenda = {
                         clienteId: cliente ? cliente.id : null,
                         clienteNome: cliente ? cliente.nome : clienteAvulso.trim() || "Cliente avulso",
                         itens: carrinho,
-                        formaPagamento,
+                        formaPagamento: dividirPagamento
+                          ? `${formaPagamento} + ${formaPagamento2}`
+                          : formaPagamento,
+                        pagamentos,
                         tipoVenda: revendedor ? ("revendedor" as const) : ("cliente" as const),
                         lembreteCobranca: lembreteCobranca || null,
                       };
