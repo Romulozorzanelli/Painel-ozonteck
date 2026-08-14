@@ -5363,6 +5363,7 @@ function TabAudios({ ativo }: { ativo: boolean }) {
   const [salvandoAudio, setSalvandoAudio] = useState(false);
   const [expandidoId, setExpandidoId] = useState<string | null>(null);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
+  const [avisoDownloadId, setAvisoDownloadId] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -5488,24 +5489,50 @@ function TabAudios({ ativo }: { ativo: boolean }) {
     }
   }
 
+  async function buscarBlobAudio(audio: AudioVenda) {
+    const resposta = await fetch(audio.arquivoUrl);
+    const blob = await resposta.blob();
+    const extensao = audio.arquivoUrl.split(".").pop() || "webm";
+    const nomeArquivo = `${audio.titulo.replace(/[^\w\s-]/g, "").trim() || "audio"}.${extensao}`;
+    return { blob, nomeArquivo };
+  }
+
+  async function baixarAudio(audio: AudioVenda) {
+    const { blob, nomeArquivo } = await buscarBlobAudio(audio);
+    // Baixa de verdade (não abre o áudio numa aba pra tocar/ver), usando um
+    // link com Blob URL local, que funciona mesmo com o arquivo vindo de
+    // outro domínio (o Supabase Storage), diferente de simplesmente apontar
+    // pro link direto do arquivo.
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = nomeArquivo;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+    setAvisoDownloadId(audio.id);
+  }
+
   async function compartilharAudio(audio: AudioVenda) {
+    setAvisoDownloadId(null);
     try {
-      const resposta = await fetch(audio.arquivoUrl);
-      const blob = await resposta.blob();
-      const extensao = audio.arquivoUrl.split(".").pop() || "webm";
-      const nomeArquivo = `${audio.titulo.replace(/[^\w\s-]/g, "").trim() || "audio"}.${extensao}`;
+      const { blob, nomeArquivo } = await buscarBlobAudio(audio);
       const arquivo = new File([blob], nomeArquivo, { type: blob.type || "audio/webm" });
 
       if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
         await navigator.share({ files: [arquivo], title: audio.titulo });
-      } else {
-        window.open(audio.arquivoUrl, "_blank");
+        return;
       }
+      // O aparelho/navegador não suporta compartilhar arquivo (só teria
+      // como compartilhar o link, o que abre uma tela de tocar/baixar em
+      // vez de já ir pro WhatsApp). Nesse caso, baixa o áudio de verdade e
+      // orienta a pessoa a anexar manualmente.
+      await baixarAudio(audio);
     } catch (e: any) {
-      // AbortError acontece quando a pessoa cancela a folha de compartilhamento — não é erro.
-      if (e?.name !== "AbortError") {
-        window.open(audio.arquivoUrl, "_blank");
-      }
+      // AbortError acontece quando a pessoa cancela a folha de compartilhamento, não é erro.
+      if (e?.name === "AbortError") return;
+      await baixarAudio(audio);
     }
   }
 
@@ -5599,7 +5626,10 @@ function TabAudios({ ativo }: { ativo: boolean }) {
             <div key={a.id} className="row-card" style={{ flexDirection: "column", alignItems: "stretch" }}>
               <div
                 style={{ display: "flex", alignItems: "center", cursor: "pointer" }}
-                onClick={() => setExpandidoId(expandidoId === a.id ? null : a.id)}
+                onClick={() => {
+                  setExpandidoId(expandidoId === a.id ? null : a.id);
+                  setAvisoDownloadId(null);
+                }}
               >
                 <div className="row-card-media-placeholder">
                   <IconAudio />
@@ -5627,12 +5657,33 @@ function TabAudios({ ativo }: { ativo: boolean }) {
                     <button
                       type="button"
                       className="btn btn-ghost btn-sm"
+                      onClick={() => baixarAudio(a)}
+                    >
+                      Baixar áudio
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
                       disabled={excluindoId === a.id}
                       onClick={() => excluirAudio(a)}
                     >
                       {excluindoId === a.id ? "Excluindo..." : "Excluir"}
                     </button>
                   </div>
+                  {avisoDownloadId === a.id && (
+                    <p
+                      style={{
+                        color: "var(--muted)",
+                        fontSize: "0.78rem",
+                        marginTop: 8,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      Áudio baixado no aparelho. Agora abra o WhatsApp, entre na conversa, toque no
+                      ícone de anexo (clipe) e escolha "Documento" ou "Galeria" (o áudio geralmente
+                      fica salvo na pasta Downloads) pra enviar esse arquivo.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
