@@ -51,6 +51,10 @@ import {
   type CatalogoConfig,
   getMateriaisApoio,
   type MaterialApoio,
+  getAudiosVenda,
+  salvarAudioVenda,
+  removerAudioVenda,
+  type AudioVenda,
 } from "@/lib/store";
 import { extrairItensNotaFiscal, casarComCatalogo, type ItemNotaFiscal } from "@/lib/nota-fiscal";
 import { extrairContatosPlanilha, type ContatoImportado } from "@/lib/planilha";
@@ -448,6 +452,25 @@ function IconTemplates({ className }: { className?: string }) {
       <path d="M2.5 6.5h9l4 4V20a1.2 1.2 0 0 1-1.2 1.2H3.7A1.2 1.2 0 0 1 2.5 20Z" />
       <path d="M6 12.5h6" />
       <path d="M6 15.5h4" />
+    </svg>
+  );
+}
+
+function IconAudio({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" />
+      <path d="M12 18v3" />
+      <path d="M9 21h6" />
     </svg>
   );
 }
@@ -5276,6 +5299,387 @@ function TabTemplates() {
   );
 }
 
+type SugestaoAudio = {
+  id: string;
+  titulo: string;
+  texto: string;
+};
+
+const SUGESTOES_AUDIO: SugestaoAudio[] = [
+  {
+    id: "convite",
+    titulo: "Convite geral",
+    texto:
+      "Oi, tudo bem? Gravei esse áudio rapidinho pra te contar uma novidade. Comecei a trabalhar com a Ozonteck, uma marca de perfumaria, linha capilar e bem-estar. A qualidade me surpreendeu de verdade, principalmente a perfumaria. Queria te mostrar de perto, topa marcar um horário essa semana?",
+  },
+  {
+    id: "dia-das-maes",
+    titulo: "Dia das Mães",
+    texto:
+      "Oi, tudo bem? O Dia das Mães está chegando e separei algumas opções lindas de perfume pra você presentear com carinho, sem gastar uma fortuna. Quer que eu te mande as sugestões?",
+  },
+  {
+    id: "dia-dos-pais",
+    titulo: "Dia dos Pais",
+    texto:
+      "Oi, tudo bem? Com o Dia dos Pais chegando, separei algumas fragrâncias marcantes que fazem muito sucesso como presente. Quer dar uma olhada nas opções antes que acabe o estoque?",
+  },
+  {
+    id: "indicacao",
+    titulo: "Pedido de indicação",
+    texto:
+      "Oi, tudo bem? Queria te pedir um favor. Você conhece alguém que possa gostar dos produtos da Ozonteck ou até se interessar em trabalhar com a gente? Se lembrar de alguém, me indica que eu cuido do resto.",
+  },
+];
+
+function formatarDuracao(segundos: number | null): string {
+  if (!segundos || segundos <= 0) return "";
+  const m = Math.floor(segundos / 60);
+  const s = Math.round(segundos % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function mimeTypeAudioSuportado(): string {
+  const candidatos = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"];
+  if (typeof MediaRecorder === "undefined") return "";
+  for (const tipo of candidatos) {
+    if (MediaRecorder.isTypeSupported(tipo)) return tipo;
+  }
+  return "";
+}
+
+function TabAudios({ ativo }: { ativo: boolean }) {
+  const [audios, setAudios] = useState<AudioVenda[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const jaAtivouAntes = useRef(false);
+
+  const [painelAberto, setPainelAberto] = useState(false);
+  const [gravando, setGravando] = useState(false);
+  const [tempoGravado, setTempoGravado] = useState(0);
+  const [blobGravado, setBlobGravado] = useState<Blob | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [tituloAudio, setTituloAudio] = useState("");
+  const [erroGravacao, setErroGravacao] = useState("");
+  const [salvandoAudio, setSalvandoAudio] = useState(false);
+  const [expandidoId, setExpandidoId] = useState<string | null>(null);
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inicioGravacaoRef = useRef(0);
+
+  useEffect(() => {
+    getAudiosVenda()
+      .then(setAudios)
+      .finally(() => setCarregando(false));
+  }, []);
+
+  useEffect(() => {
+    if (!ativo) return;
+    if (!jaAtivouAntes.current) {
+      jaAtivouAntes.current = true;
+      return;
+    }
+    getAudiosVenda().then(setAudios);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativo]);
+
+  // Libera microfone e limpa timer se a pessoa sair da aba com a gravação
+  // ainda rolando ou o painel aberto.
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  function abrirPainel() {
+    setPainelAberto(true);
+    setErroGravacao("");
+    setTituloAudio("");
+    setBlobGravado(null);
+    setPreviewUrl(null);
+    setTempoGravado(0);
+  }
+
+  function fecharPainel() {
+    if (gravando) pararGravacao();
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPainelAberto(false);
+    setBlobGravado(null);
+    setPreviewUrl(null);
+    setTituloAudio("");
+    setTempoGravado(0);
+  }
+
+  async function iniciarGravacao() {
+    setErroGravacao("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      const mimeType = mimeTypeAudioSuportado();
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        setBlobGravado(blob);
+        setPreviewUrl(URL.createObjectURL(blob));
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+      };
+
+      recorder.start();
+      inicioGravacaoRef.current = Date.now();
+      setTempoGravado(0);
+      setGravando(true);
+      timerRef.current = setInterval(() => {
+        setTempoGravado(Math.floor((Date.now() - inicioGravacaoRef.current) / 1000));
+      }, 250);
+    } catch {
+      setErroGravacao(
+        "Não consegui acessar o microfone. Verifique a permissão do navegador e tente de novo."
+      );
+    }
+  }
+
+  function pararGravacao() {
+    if (timerRef.current) clearInterval(timerRef.current);
+    mediaRecorderRef.current?.stop();
+    setGravando(false);
+  }
+
+  function regravar() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setBlobGravado(null);
+    setPreviewUrl(null);
+    setTempoGravado(0);
+  }
+
+  async function salvarAudio() {
+    if (!blobGravado || !tituloAudio.trim() || salvandoAudio) return;
+    setSalvandoAudio(true);
+    try {
+      const criado = await salvarAudioVenda({
+        titulo: tituloAudio.trim(),
+        blob: blobGravado,
+        duracaoSegundos: tempoGravado || null,
+      });
+      setAudios((atuais) => [criado, ...atuais]);
+      fecharPainel();
+    } finally {
+      setSalvandoAudio(false);
+    }
+  }
+
+  async function excluirAudio(audio: AudioVenda) {
+    setExcluindoId(audio.id);
+    try {
+      await removerAudioVenda(audio.id);
+      setAudios((atuais) => atuais.filter((a) => a.id !== audio.id));
+    } finally {
+      setExcluindoId(null);
+    }
+  }
+
+  async function compartilharAudio(audio: AudioVenda) {
+    try {
+      const resposta = await fetch(audio.arquivoUrl);
+      const blob = await resposta.blob();
+      const extensao = audio.arquivoUrl.split(".").pop() || "webm";
+      const nomeArquivo = `${audio.titulo.replace(/[^\w\s-]/g, "").trim() || "audio"}.${extensao}`;
+      const arquivo = new File([blob], nomeArquivo, { type: blob.type || "audio/webm" });
+
+      if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+        await navigator.share({ files: [arquivo], title: audio.titulo });
+      } else {
+        window.open(audio.arquivoUrl, "_blank");
+      }
+    } catch (e: any) {
+      // AbortError acontece quando a pessoa cancela a folha de compartilhamento — não é erro.
+      if (e?.name !== "AbortError") {
+        window.open(audio.arquivoUrl, "_blank");
+      }
+    }
+  }
+
+  if (carregando) {
+    return <div className="empty-state">Carregando áudios...</div>;
+  }
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Áudios</h1>
+        <p>Grave convites e mensagens em áudio pra compartilhar direto no WhatsApp.</p>
+      </div>
+
+      {!painelAberto && (
+        <button className="btn btn-primary" style={{ marginBottom: 16 }} onClick={abrirPainel}>
+          + Gravar novo áudio
+        </button>
+      )}
+
+      {painelAberto && (
+        <div className="panel-card" style={{ marginBottom: 20 }}>
+          <h2 className="panel-title">Novo áudio</h2>
+
+          {erroGravacao && (
+            <p style={{ color: "#e0665a", fontSize: "0.82rem", marginBottom: 10 }}>{erroGravacao}</p>
+          )}
+
+          {!blobGravado && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              <button
+                type="button"
+                className={gravando ? "btn btn-ghost" : "btn btn-primary"}
+                onClick={gravando ? pararGravacao : iniciarGravacao}
+              >
+                {gravando ? "Parar gravação" : "Iniciar gravação"}
+              </button>
+              {gravando && (
+                <span style={{ color: "#e0665a", fontSize: "0.85rem", fontVariantNumeric: "tabular-nums" }}>
+                  ● {formatarDuracao(tempoGravado) || "0:00"}
+                </span>
+              )}
+            </div>
+          )}
+
+          {blobGravado && previewUrl && (
+            <div style={{ marginBottom: 14 }}>
+              <p style={{ color: "var(--muted)", fontSize: "0.8rem", marginBottom: 8 }}>
+                Ouça antes de salvar. Se não ficou bom, é só regravar.
+              </p>
+              <audio controls src={previewUrl} style={{ width: "100%", marginBottom: 10 }} />
+              <button type="button" className="btn btn-ghost btn-sm" onClick={regravar}>
+                Regravar
+              </button>
+            </div>
+          )}
+
+          <div className="form-row">
+            <label>Título do áudio</label>
+            <input
+              className="text-input"
+              value={tituloAudio}
+              onChange={(e) => setTituloAudio(e.target.value)}
+              placeholder="Ex: Convite geral, Dia das Mães..."
+            />
+          </div>
+
+          <div className="row-card-actions">
+            <button
+              className="btn btn-primary"
+              disabled={!blobGravado || !tituloAudio.trim() || salvandoAudio}
+              onClick={salvarAudio}
+            >
+              {salvandoAudio ? "Salvando..." : "Salvar áudio"}
+            </button>
+            <button className="btn btn-ghost" disabled={salvandoAudio} onClick={fecharPainel}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {audios.length === 0 ? (
+        <div className="empty-state" style={{ marginBottom: 24 }}>
+          <div className="title">Nenhum áudio gravado ainda</div>
+          Grave o primeiro usando o botão acima.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+          {audios.map((a) => (
+            <div key={a.id} className="row-card" style={{ flexDirection: "column", alignItems: "stretch" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", cursor: "pointer" }}
+                onClick={() => setExpandidoId(expandidoId === a.id ? null : a.id)}
+              >
+                <div className="row-card-media-placeholder">
+                  <IconAudio />
+                </div>
+                <div className="row-card-body">
+                  <div className="row-card-title">{a.titulo}</div>
+                  <div className="row-card-sub">
+                    {new Date(a.criadoEm).toLocaleDateString("pt-BR")}
+                    {a.duracaoSegundos ? ` • ${formatarDuracao(a.duracaoSegundos)}` : ""}
+                  </div>
+                </div>
+              </div>
+
+              {expandidoId === a.id && (
+                <div style={{ marginTop: 10 }}>
+                  <audio controls src={a.arquivoUrl} style={{ width: "100%", marginBottom: 10 }} />
+                  <div className="row-card-actions">
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={() => compartilharAudio(a)}
+                    >
+                      Compartilhar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      disabled={excluindoId === a.id}
+                      onClick={() => excluirAudio(a)}
+                    >
+                      {excluindoId === a.id ? "Excluindo..." : "Excluir"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h2 className="panel-title" style={{ marginBottom: 4 }}>
+        Sugestões de roteiro
+      </h2>
+      <p style={{ color: "var(--muted)", fontSize: "0.8rem", marginBottom: 12 }}>
+        Textos prontos pra ler enquanto grava, como um teleprompter. Toque pra abrir.
+      </p>
+      {SUGESTOES_AUDIO.map((s) => (
+        <div key={s.id} className="panel-card" style={{ marginBottom: 10 }}>
+          <div
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+            onClick={() => setExpandidoId(expandidoId === `sugestao-${s.id}` ? null : `sugestao-${s.id}`)}
+          >
+            <h3 className="panel-title" style={{ margin: 0 }}>
+              {s.titulo}
+            </h3>
+            <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+              {expandidoId === `sugestao-${s.id}` ? "Fechar" : "Ver texto"}
+            </span>
+          </div>
+          {expandidoId === `sugestao-${s.id}` && (
+            <p
+              style={{
+                background: "var(--panel-2)",
+                border: "1px solid var(--border)",
+                borderRadius: 10,
+                padding: 12,
+                fontSize: "0.86rem",
+                lineHeight: 1.5,
+                marginTop: 10,
+              }}
+            >
+              {s.texto}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 type ModeloRede = {
   id: string;
   titulo: string;
@@ -5503,6 +5907,7 @@ const TABS_MENU = [
   { id: "catalogo", label: "Catálogo", Icon: IconCatalogo },
   { id: "materiais", label: "Materiais", Icon: IconMateriais },
   { id: "templates", label: "Templates", Icon: IconTemplates },
+  { id: "audios", label: "Áudios", Icon: IconAudio },
   { id: "rede", label: "Rede", Icon: IconRede },
   { id: "perfil", label: "Perfil", Icon: IconPerfil },
 ] as const;
@@ -5683,6 +6088,11 @@ function PainelShell() {
         {abasVisitadas.has("templates") && (
           <div style={{ display: aba === "templates" ? "block" : "none" }}>
             <TabTemplates />
+          </div>
+        )}
+        {abasVisitadas.has("audios") && (
+          <div style={{ display: aba === "audios" ? "block" : "none" }}>
+            <TabAudios ativo={aba === "audios"} />
           </div>
         )}
         {abasVisitadas.has("rede") && (
