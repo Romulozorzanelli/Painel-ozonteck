@@ -1065,6 +1065,82 @@ export async function getMateriaisApoio(): Promise<MaterialApoio[]> {
   return (data ?? []).map(materialApoioFromRow);
 }
 
+/* ---------------------------- Áudios (gravações do revendedor) ---------------------------- */
+
+export type AudioVenda = {
+  id: string;
+  titulo: string;
+  arquivoUrl: string;
+  duracaoSegundos: number | null;
+  criadoEm: string;
+};
+
+function audioVendaFromRow(row: any): AudioVenda {
+  return {
+    id: row.id,
+    titulo: row.titulo,
+    arquivoUrl: row.arquivo_url,
+    duracaoSegundos: row.duracao_segundos !== null ? Number(row.duracao_segundos) : null,
+    criadoEm: row.criado_em,
+  };
+}
+
+export async function getAudiosVenda(): Promise<AudioVenda[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("audios_venda")
+    .select("*")
+    .order("criado_em", { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map(audioVendaFromRow);
+}
+
+export async function salvarAudioVenda(input: {
+  titulo: string;
+  blob: Blob;
+  duracaoSegundos: number | null;
+}): Promise<AudioVenda> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Usuário não autenticado.");
+
+  // O formato gravado pelo navegador (MediaRecorder) é webm/opus na
+  // grande maioria dos celulares Android e é o que garante que o
+  // WhatsApp reconheça como áudio e mostre um player, em vez de tratar
+  // como arquivo genérico.
+  const extensao = input.blob.type.includes("mp4") ? "m4a" : "webm";
+  const caminho = `${user.id}/audio-${Date.now()}.${extensao}`;
+
+  const { error: erroUpload } = await supabase.storage
+    .from("audios-revendedor")
+    .upload(caminho, input.blob, { contentType: input.blob.type || "audio/webm" });
+  if (erroUpload) throw erroUpload;
+
+  const { data: urlData } = supabase.storage.from("audios-revendedor").getPublicUrl(caminho);
+
+  const { data, error } = await supabase
+    .from("audios_venda")
+    .insert({
+      titulo: input.titulo,
+      arquivo_url: urlData.publicUrl,
+      duracao_segundos: input.duracaoSegundos,
+    })
+    .select("*")
+    .single();
+
+  if (error || !data) throw error;
+  return audioVendaFromRow(data);
+}
+
+export async function removerAudioVenda(id: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from("audios_venda").delete().eq("id", id);
+  if (error) throw error;
+}
+
 /* ---------------------------- Catálogo (config do revendedor) ---------------------------- */
 
 function catalogoConfigFromRow(row: any): CatalogoConfig {
