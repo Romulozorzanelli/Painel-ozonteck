@@ -1273,6 +1273,8 @@ export const TIPOS_RELACAO: {
   { valor: "namorado", label: "Namorado(a)", inverso: "namorado", inversoLabel: "Namorado(a)" },
   { valor: "filho", label: "Filho(a)", inverso: "pai_mae", inversoLabel: "Pai/Mãe" },
   { valor: "pai_mae", label: "Pai/Mãe", inverso: "filho", inversoLabel: "Filho(a)" },
+  { valor: "irmao", label: "Irmão(a)", inverso: "irmao", inversoLabel: "Irmão(a)" },
+  { valor: "familiar", label: "Família/Parente", inverso: "familiar", inversoLabel: "Família/Parente" },
   { valor: "amigo", label: "Amigo(a)", inverso: "amigo", inversoLabel: "Amigo(a)" },
   { valor: "outro", label: "Outro vínculo", inverso: "outro", inversoLabel: "Outro vínculo" },
 ];
