@@ -1247,3 +1247,74 @@ export async function getCatalogoPublico(slug: string): Promise<CatalogoPublico 
     })),
   };
 }
+
+/* ---------------------------- Vinculos entre clientes (casal/familia/amigo) ---------------------------- */
+
+export type Relacionamento = {
+  id: string;
+  clienteIdA: string;
+  clienteIdB: string;
+  tipoRelacao: string;
+  criadoEm: string;
+};
+
+// tipoRelacao descreve o que clienteIdB e em relacao a clienteIdA.
+// Ex: clienteIdA = Joao, clienteIdB = Maria, tipoRelacao = "conjuge" -> "Maria e conjuge de Joao".
+// O campo "inverso" serve pra mostrar o rotulo certo quando a tela mostra o vinculo
+// a partir do outro lado (do ponto de vista da Maria, o Joao tambem e "conjuge";
+// ja pra filho/pai_mae o rotulo inverte).
+export const TIPOS_RELACAO: {
+  valor: string;
+  label: string;
+  inverso: string;
+  inversoLabel: string;
+}[] = [
+  { valor: "conjuge", label: "Cônjuge", inverso: "conjuge", inversoLabel: "Cônjuge" },
+  { valor: "namorado", label: "Namorado(a)", inverso: "namorado", inversoLabel: "Namorado(a)" },
+  { valor: "filho", label: "Filho(a)", inverso: "pai_mae", inversoLabel: "Pai/Mãe" },
+  { valor: "pai_mae", label: "Pai/Mãe", inverso: "filho", inversoLabel: "Filho(a)" },
+  { valor: "amigo", label: "Amigo(a)", inverso: "amigo", inversoLabel: "Amigo(a)" },
+  { valor: "outro", label: "Outro vínculo", inverso: "outro", inversoLabel: "Outro vínculo" },
+];
+
+function relacionamentoFromRow(row: any): Relacionamento {
+  return {
+    id: row.id,
+    clienteIdA: row.cliente_id_a,
+    clienteIdB: row.cliente_id_b,
+    tipoRelacao: row.tipo_relacao,
+    criadoEm: row.criado_em,
+  };
+}
+
+export async function getRelacionamentos(): Promise<Relacionamento[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("relacionamentos_clientes")
+    .select("*")
+    .order("criado_em", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(relacionamentoFromRow);
+}
+
+// clienteIdB e o que tipoRelacao descreve (ex: "Maria e conjuge de Joao" -> clienteIdA=Joao, clienteIdB=Maria, tipoRelacao="conjuge").
+export async function criarRelacionamento(
+  clienteIdA: string,
+  clienteIdB: string,
+  tipoRelacao: string
+): Promise<Relacionamento[]> {
+  const supabase = createClient();
+  const { error } = await supabase.from("relacionamentos_clientes").insert({
+    cliente_id_a: clienteIdA,
+    cliente_id_b: clienteIdB,
+    tipo_relacao: tipoRelacao,
+  });
+  if (error) throw error;
+  return getRelacionamentos();
+}
+
+export async function removerRelacionamento(id: string): Promise<Relacionamento[]> {
+  const supabase = createClient();
+  await supabase.from("relacionamentos_clientes").delete().eq("id", id);
+  return getRelacionamentos();
+}
