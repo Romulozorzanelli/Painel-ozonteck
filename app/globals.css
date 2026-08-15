@@ -579,11 +579,20 @@ button {
 .cliente-linha-nome {
   font-size: 0.88rem;
   color: var(--text);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .cliente-linha-telefone {
   font-size: 0.78rem;
   color: var(--muted);
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  max-width: 55%;
+  text-align: right;
+  white-space: normal;
+  word-break: break-word;
 }
 .tarefa-grupo-header {
   display: flex;
