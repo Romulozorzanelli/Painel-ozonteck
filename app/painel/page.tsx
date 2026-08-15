@@ -696,7 +696,7 @@ function TabInicio({
         clienteId: notificar.id,
         clienteNome: notificar.nome,
         telefone: notificar.telefone,
-        dataReferencia: `Aniversário de ${primeiroNome(aniversariante.nome)}: ${rotuloRelativo(proxima, agora)}`,
+        dataReferencia: `🎂 ${primeiroNome(aniversariante.nome)}: ${rotuloRelativo(proxima, agora)}`,
         mensagemPadrao: gerarMensagem(
           "presente_vinculado",
           primeiroNome(notificar.nome),
