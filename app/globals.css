@@ -232,6 +232,7 @@ button {
 }
 .textarea-input {
   min-height: 72px;
+  resize: none;
 }
 .search-input:focus,
 .select-input:focus,
