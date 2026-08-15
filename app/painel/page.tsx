@@ -5958,7 +5958,9 @@ const TABS_MENU = [
   { id: "catalogo", label: "Catálogo", Icon: IconCatalogo },
   { id: "materiais", label: "Materiais", Icon: IconMateriais },
   { id: "templates", label: "Templates", Icon: IconTemplates },
-  { id: "audios", label: "Áudios", Icon: IconAudio },
+  // Aba "Áudios" oculta a pedido do usuário (2026-08-15) — não removida do
+  // código, só tirada do menu, pra poder reativar rápido se decidir usar
+  // de novo. Ver TabAudios, IconAudio e o bloco condicional em abasVisitadas.
   { id: "rede", label: "Rede", Icon: IconRede },
   { id: "perfil", label: "Perfil", Icon: IconPerfil },
 ] as const;
@@ -6141,11 +6143,8 @@ function PainelShell() {
             <TabTemplates />
           </div>
         )}
-        {abasVisitadas.has("audios") && (
-          <div style={{ display: aba === "audios" ? "block" : "none" }}>
-            <TabAudios ativo={aba === "audios"} />
-          </div>
-        )}
+        {/* Aba "Áudios" oculta a pedido do usuário — TabAudios continua definida
+            no arquivo, só não é mais renderizada nem listada no menu. */}
         {abasVisitadas.has("rede") && (
           <div style={{ display: aba === "rede" ? "block" : "none" }}>
             <TabRede />
