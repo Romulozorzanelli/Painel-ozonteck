@@ -1069,11 +1069,13 @@ function TabInicio({
               >
                 <option value="novo_cadastro">Boas-vindas</option>
                 <option value="aniversario">Aniversário</option>
+                <option value="presente_vinculado">Presente pra alguém vinculado</option>
                 <option value="pedir_aniversario">Pedir aniversário</option>
                 <option value="renovar">Renovar pedido</option>
                 <option value="pos_venda">Pós-venda</option>
                 <option value="indicacao">Pedir indicação</option>
                 <option value="inativo">Cliente inativo</option>
+                <option value="cobranca">Cobrança (a receber)</option>
               </select>
             </div>
 
