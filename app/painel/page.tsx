@@ -2416,6 +2416,11 @@ function TabClientes({
   const [clienteVinculoId, setClienteVinculoId] = useState("");
   const [tipoVinculoSelecionado, setTipoVinculoSelecionado] = useState(TIPOS_RELACAO[0].valor);
   const [salvandoVinculo, setSalvandoVinculo] = useState(false);
+  const [confirmarRemocaoVinculo, setConfirmarRemocaoVinculo] = useState<{
+    relacionamentoId: string;
+    nomeOutro: string;
+  } | null>(null);
+  const [removendoVinculo, setRemovendoVinculo] = useState(false);
   const jaAtivouAntes = useRef(false);
 
   function buscarDados() {
@@ -2764,12 +2769,14 @@ function TabClientes({
                     </span>
                   </span>
                   <button
-                    className="btn-icon"
+                    className="btn btn-ghost btn-icon"
                     title="Remover vínculo"
-                    onClick={async () => {
-                      if (!confirm(`Remover vínculo com ${v.outro.nome}?`)) return;
-                      setRelacionamentos(await removerRelacionamento(v.relacionamentoId));
-                    }}
+                    onClick={() =>
+                      setConfirmarRemocaoVinculo({
+                        relacionamentoId: v.relacionamentoId,
+                        nomeOutro: v.outro.nome,
+                      })
+                    }
                   >
                     ×
                   </button>
@@ -3231,6 +3238,48 @@ function TabClientes({
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {confirmarRemocaoVinculo && (
+        <div
+          className="sheet-overlay"
+          onClick={() => !removendoVinculo && setConfirmarRemocaoVinculo(null)}
+        >
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <h2 style={{ marginBottom: 8 }}>Remover vínculo?</h2>
+            <p style={{ color: "var(--muted)", fontSize: "0.88rem", marginBottom: 20 }}>
+              Isso remove o vínculo com {confirmarRemocaoVinculo.nomeOutro}. Os lembretes de
+              presente cruzado pra esse contato param de aparecer no Início.
+            </p>
+            <div className="form-actions">
+              <button
+                className="btn btn-ghost"
+                disabled={removendoVinculo}
+                onClick={() => setConfirmarRemocaoVinculo(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn btn-danger"
+                disabled={removendoVinculo}
+                onClick={async () => {
+                  setRemovendoVinculo(true);
+                  try {
+                    setRelacionamentos(
+                      await removerRelacionamento(confirmarRemocaoVinculo.relacionamentoId)
+                    );
+                    setConfirmarRemocaoVinculo(null);
+                  } finally {
+                    setRemovendoVinculo(false);
+                  }
+                }}
+              >
+                {removendoVinculo ? "Removendo..." : "Remover"}
+              </button>
+            </div>
           </div>
         </div>
       )}
