@@ -55,6 +55,11 @@ import {
   salvarAudioVenda,
   removerAudioVenda,
   type AudioVenda,
+  getRelacionamentos,
+  criarRelacionamento,
+  removerRelacionamento,
+  type Relacionamento,
+  TIPOS_RELACAO,
 } from "@/lib/store";
 import { extrairItensNotaFiscal, casarComCatalogo, type ItemNotaFiscal } from "@/lib/nota-fiscal";
 import { extrairContatosPlanilha, type ContatoImportado } from "@/lib/planilha";
@@ -121,6 +126,11 @@ function mensagemCobranca(nome: string, valor?: string): string {
   return `Oi ${nome}! Passando pra lembrar que ainda está em aberto um pagamento${referencia}. Consegue resolver hoje? Qualquer dúvida sobre o pedido, me chama! 💙`;
 }
 
+function mensagemPresenteVinculado(nome: string, aniversariante?: string): string {
+  const referencia = aniversariante ? `do(a) ${aniversariante}` : "de alguém especial";
+  return `Oi ${nome}! 🎁 Passando pra lembrar que o aniversário ${referencia} está chegando. Já pensou no presente? Separei algumas sugestões, se quiser é só me chamar!`;
+}
+
 // Tipos de tarefa que têm mensagem editável (fora do fluxo especial de
 // "cadastro incompleto", que não manda mensagem — não tem telefone ainda).
 const TIPOS_TAREFA_MENSAGEM: { tipo: TipoTarefa; label: string }[] = [
@@ -132,6 +142,7 @@ const TIPOS_TAREFA_MENSAGEM: { tipo: TipoTarefa; label: string }[] = [
   { tipo: "inativo", label: "Cliente inativo" },
   { tipo: "pedir_aniversario", label: "Pedir data de aniversário" },
   { tipo: "cobranca", label: "Cobrança (a receber)" },
+  { tipo: "presente_vinculado", label: "Presente pra alguém vinculado" },
 ];
 
 function mensagemPadraoPorTipo(
@@ -147,6 +158,7 @@ function mensagemPadraoPorTipo(
   if (tipo === "inativo") return mensagemInativo(nome);
   if (tipo === "pedir_aniversario") return mensagemPedirAniversario(nome);
   if (tipo === "cobranca") return mensagemCobranca(nome, valor);
+  if (tipo === "presente_vinculado") return mensagemPresenteVinculado(nome, ultimoProduto);
   return mensagemPosVenda(nome);
 }
 
@@ -211,7 +223,8 @@ type TipoTarefa =
   | "inativo"
   | "pedir_aniversario"
   | "cadastro_incompleto"
-  | "cobranca";
+  | "cobranca"
+  | "presente_vinculado";
 
 type Tarefa = {
   id: string;
@@ -234,12 +247,14 @@ const CONFIG_TAREFA: Record<TipoTarefa, { label: string; emoji: string; badge: s
   indicacao: { label: "Pedir indicação", emoji: "🤝", badge: "badge-info" },
   inativo: { label: "Cliente inativo", emoji: "😴", badge: "badge-low" },
   cobranca: { label: "Cobrança", emoji: "💰", badge: "badge-low" },
+  presente_vinculado: { label: "Presente pra vínculo", emoji: "🎁", badge: "badge-warn" },
 };
 
 // Ordem de exibição dos grupos: mais urgente/sensível a tempo primeiro.
 const ORDEM_TIPOS_TAREFA: TipoTarefa[] = [
   "cobranca",
   "aniversario",
+  "presente_vinculado",
   "pos_venda",
   "novo_cadastro",
   "cadastro_incompleto",
@@ -528,6 +543,7 @@ function TabInicio({
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [templates, setTemplates] = useState<Record<string, string>>({});
+  const [relacionamentos, setRelacionamentos] = useState<Relacionamento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [tarefaAberta, setTarefaAberta] = useState<Tarefa | null>(null);
   const [modeloSelecionado, setModeloSelecionado] = useState<TipoTarefa | null>(null);
@@ -544,12 +560,14 @@ function TabInicio({
       getVendas(),
       getPerfil(),
       getTemplates(),
-    ]).then(([p, c, v, perf, temp]) => {
+      getRelacionamentos(),
+    ]).then(([p, c, v, perf, temp, rel]) => {
       setProdutos(p);
       setClientes(c);
       setVendas(v);
       setPerfil(perf);
       setTemplates(temp);
+      setRelacionamentos(rel);
     });
   }
 
@@ -641,6 +659,54 @@ function TabInicio({
       dataReferencia: rotuloRelativo(proxima, agora),
       mensagemPadrao: gerarMensagem("aniversario", primeiroNome(c.nome), undefined, templates),
     }));
+
+  // Lembrete de presente cruzado: quando um cliente vinculado (conjuge, filho,
+  // pai/mae, amigo) esta com aniversario chegando, avisa a pessoa vinculada
+  // pra ela poder presentear. Funciona nos dois sentidos do vinculo (nao
+  // importa quem e cliente_id_a ou cliente_id_b na tabela).
+  const JANELA_PRESENTE_VINCULADO_DIAS = 10;
+  const clientesPorId = new Map(clientes.map((c) => [c.id, c]));
+
+  const tarefasPresenteVinculado: Tarefa[] = relacionamentos.flatMap((r) => {
+    const pessoaA = clientesPorId.get(r.clienteIdA);
+    const pessoaB = clientesPorId.get(r.clienteIdB);
+    if (!pessoaA || !pessoaB) return [];
+
+    const direcoes = [
+      { aniversariante: pessoaA, notificar: pessoaB },
+      { aniversariante: pessoaB, notificar: pessoaA },
+    ];
+
+    const tarefasDoVinculo: Tarefa[] = [];
+    for (const { aniversariante, notificar } of direcoes) {
+      if (!aniversariante.aniversarioDia || !aniversariante.aniversarioMes) continue;
+      if (!notificar.telefone) continue;
+      const proxima = proximaOcorrenciaAniversario(
+        aniversariante.aniversarioDia,
+        aniversariante.aniversarioMes,
+        agora
+      );
+      const diffDias = Math.round(
+        (inicioDoDia(proxima).getTime() - inicioDoDia(agora).getTime()) / 86400000
+      );
+      if (diffDias > JANELA_PRESENTE_VINCULADO_DIAS) continue;
+      tarefasDoVinculo.push({
+        id: `presente-vinculado-${r.id}-${aniversariante.id}`,
+        tipo: "presente_vinculado" as const,
+        clienteId: notificar.id,
+        clienteNome: notificar.nome,
+        telefone: notificar.telefone,
+        dataReferencia: `Aniversário de ${primeiroNome(aniversariante.nome)}: ${rotuloRelativo(proxima, agora)}`,
+        mensagemPadrao: gerarMensagem(
+          "presente_vinculado",
+          primeiroNome(notificar.nome),
+          primeiroNome(aniversariante.nome),
+          templates
+        ),
+      });
+    }
+    return tarefasDoVinculo;
+  });
 
   const tarefasRenovar: Tarefa[] = clientes
     .filter((c) => c.telefone && c.proximoFollowup)
@@ -806,6 +872,7 @@ function TabInicio({
     ...tarefasCadastroIncompleto,
     ...tarefasNovoCadastro,
     ...tarefasAniversario,
+    ...tarefasPresenteVinculado,
     ...tarefasPedirAniversario,
     ...tarefasCobranca,
     ...tarefasRenovar,
@@ -2329,6 +2396,7 @@ function TabClientes({
 }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [vendas, setVendas] = useState<Venda[]>([]);
+  const [relacionamentos, setRelacionamentos] = useState<Relacionamento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
   const [detalhes, setDetalhes] = useState<Cliente | null>(null);
@@ -2341,13 +2409,43 @@ function TabClientes({
   const [removendoCliente, setRemovendoCliente] = useState(false);
   const [salvandoCliente, setSalvandoCliente] = useState(false);
   const [avisoImportacao, setAvisoImportacao] = useState("");
+  const [formVinculoAberto, setFormVinculoAberto] = useState(false);
+  const [buscaVinculo, setBuscaVinculo] = useState("");
+  const [clienteVinculoId, setClienteVinculoId] = useState("");
+  const [tipoVinculoSelecionado, setTipoVinculoSelecionado] = useState(TIPOS_RELACAO[0].valor);
+  const [salvandoVinculo, setSalvandoVinculo] = useState(false);
   const jaAtivouAntes = useRef(false);
 
   function buscarDados() {
-    return Promise.all([getClientes(), getVendas()]).then(([c, v]) => {
-      setClientes(c);
-      setVendas(v);
-    });
+    return Promise.all([getClientes(), getVendas(), getRelacionamentos()]).then(
+      ([c, v, r]) => {
+        setClientes(c);
+        setVendas(v);
+        setRelacionamentos(r);
+      }
+    );
+  }
+
+  // Vínculos do cliente aberto no momento (dos dois lados da tabela), já
+  // resolvidos pro nome/telefone da outra pessoa e o rótulo certo da relação.
+  function vinculosDoCliente(clienteId: string) {
+    return relacionamentos
+      .map((r) => {
+        if (r.clienteIdA === clienteId) {
+          const outro = clientes.find((c) => c.id === r.clienteIdB);
+          const tipo = TIPOS_RELACAO.find((t) => t.valor === r.tipoRelacao);
+          if (!outro || !tipo) return null;
+          return { relacionamentoId: r.id, outro, label: tipo.label };
+        }
+        if (r.clienteIdB === clienteId) {
+          const outro = clientes.find((c) => c.id === r.clienteIdA);
+          const tipo = TIPOS_RELACAO.find((t) => t.valor === r.tipoRelacao);
+          if (!outro || !tipo) return null;
+          return { relacionamentoId: r.id, outro, label: tipo.inversoLabel };
+        }
+        return null;
+      })
+      .filter((v): v is { relacionamentoId: string; outro: Cliente; label: string } => v !== null);
   }
 
   useEffect(() => {
@@ -2619,6 +2717,151 @@ function TabClientes({
                 >
                   {detalhes.observacoes}
                 </p>
+              )}
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 8,
+                }}
+              >
+                <span style={{ color: "var(--muted)", fontSize: "0.86rem" }}>
+                  Vínculos (casal, família, amigos)
+                </span>
+                <button
+                  className="btn btn-ghost"
+                  style={{ padding: "4px 10px", fontSize: "0.8rem" }}
+                  onClick={() => {
+                    setFormVinculoAberto((v) => !v);
+                    setBuscaVinculo("");
+                    setClienteVinculoId("");
+                  }}
+                >
+                  {formVinculoAberto ? "Cancelar" : "+ Vincular"}
+                </button>
+              </div>
+
+              {vinculosDoCliente(detalhes.id).length === 0 && !formVinculoAberto && (
+                <p style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
+                  Nenhum contato vinculado ainda. Vincule cônjuge, filhos ou amigos pra
+                  receber lembrete automático de presente quando o aniversário deles
+                  chegar.
+                </p>
+              )}
+
+              {vinculosDoCliente(detalhes.id).map((v) => (
+                <div key={v.relacionamentoId} className="cart-line">
+                  <span>
+                    {v.outro.nome}{" "}
+                    <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
+                      ({v.label})
+                    </span>
+                  </span>
+                  <button
+                    className="btn-icon"
+                    title="Remover vínculo"
+                    onClick={async () => {
+                      if (!confirm(`Remover vínculo com ${v.outro.nome}?`)) return;
+                      setRelacionamentos(await removerRelacionamento(v.relacionamentoId));
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+
+              {formVinculoAberto && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: 10,
+                    borderRadius: 10,
+                    background: "var(--panel-2, rgba(255,255,255,0.04))",
+                  }}
+                >
+                  <div className="form-row">
+                    <label>Buscar contato</label>
+                    <input
+                      className="text-input"
+                      placeholder="Nome ou telefone"
+                      value={buscaVinculo}
+                      onChange={(e) => {
+                        setBuscaVinculo(e.target.value);
+                        setClienteVinculoId("");
+                      }}
+                    />
+                  </div>
+                  {buscaVinculo.trim() && !clienteVinculoId && (
+                    <div style={{ maxHeight: 160, overflowY: "auto", marginBottom: 8 }}>
+                      {clientes
+                        .filter(
+                          (c) =>
+                            c.id !== detalhes.id &&
+                            (c.nome.toLowerCase().includes(buscaVinculo.trim().toLowerCase()) ||
+                              c.telefone.includes(buscaVinculo.trim()))
+                        )
+                        .slice(0, 8)
+                        .map((c) => (
+                          <div
+                            key={c.id}
+                            className="cart-line"
+                            style={{ cursor: "pointer" }}
+                            onClick={() => {
+                              setClienteVinculoId(c.id);
+                              setBuscaVinculo(c.nome);
+                            }}
+                          >
+                            <span>{c.nome}</span>
+                            <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
+                              {c.telefone}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                  <div className="form-row">
+                    <label>Qual a relação de {buscaVinculo || "quem for escolhido"} com {primeiroNome(detalhes.nome)}?</label>
+                    <select
+                      className="text-input"
+                      value={tipoVinculoSelecionado}
+                      onChange={(e) => setTipoVinculoSelecionado(e.target.value)}
+                    >
+                      {TIPOS_RELACAO.map((t) => (
+                        <option key={t.valor} value={t.valor}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    className="btn btn-primary btn-block"
+                    disabled={!clienteVinculoId || salvandoVinculo}
+                    onClick={async () => {
+                      if (!clienteVinculoId) return;
+                      setSalvandoVinculo(true);
+                      try {
+                        setRelacionamentos(
+                          await criarRelacionamento(
+                            detalhes.id,
+                            clienteVinculoId,
+                            tipoVinculoSelecionado
+                          )
+                        );
+                        setFormVinculoAberto(false);
+                        setBuscaVinculo("");
+                        setClienteVinculoId("");
+                      } finally {
+                        setSalvandoVinculo(false);
+                      }
+                    }}
+                  >
+                    {salvandoVinculo ? "Salvando..." : "Salvar vínculo"}
+                  </button>
+                </div>
               )}
             </div>
 
