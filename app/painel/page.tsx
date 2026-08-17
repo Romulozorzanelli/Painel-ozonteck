@@ -38,6 +38,7 @@ import {
   marcarIndicacaoPedida,
   marcarInatividadeContatada,
   marcarAniversarioPedido,
+  marcarAniversarioAvisado,
   limparLembreteCobranca,
   getTemplates,
   salvarTemplate,
@@ -58,6 +59,7 @@ import {
   getRelacionamentos,
   criarRelacionamento,
   removerRelacionamento,
+  marcarPresenteVinculadoAvisado,
   type Relacionamento,
   TIPOS_RELACAO,
 } from "@/lib/store";
@@ -235,7 +237,22 @@ type Tarefa = {
   dataReferencia: string;
   mensagemPadrao: string;
   vendaId?: string;
+  relacionamentoId?: string;
+  ladoVinculo?: "a" | "b";
 };
+
+// Quantos dias, no máximo, entre a marcação de "feito" e a próxima ocorrência
+// (aniversário) pra ainda considerar que aquele aviso é sobre a MESMA
+// ocorrência. Passado isso, entende que já é o aniversário do ano seguinte e
+// a tarefa deve voltar a aparecer. Fica bem abaixo do intervalo mínimo real
+// entre um aviso e a ocorrência seguinte (~335 dias), com folga de sobra.
+const JANELA_AVISO_MESMA_OCORRENCIA_DIAS = 300;
+
+function jaAvisadoParaEstaOcorrencia(avisadoEm: string | null, proxima: Date): boolean {
+  if (!avisadoEm) return false;
+  const diffDias = (proxima.getTime() - new Date(avisadoEm).getTime()) / 86400000;
+  return diffDias >= 0 && diffDias < JANELA_AVISO_MESMA_OCORRENCIA_DIAS;
+}
 
 const CONFIG_TAREFA: Record<TipoTarefa, { label: string; emoji: string; badge: string }> = {
   cadastro_incompleto: { label: "Cadastro incompleto", emoji: "⚠️", badge: "badge-low" },
@@ -452,6 +469,24 @@ function IconMateriais({ className }: { className?: string }) {
   );
 }
 
+function IconTreinamentos({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3.5 2.5 8l9.5 4.5L21.5 8 12 3.5Z" />
+      <path d="M6 10.3V15c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.7" />
+      <path d="M21.5 8v6.5" />
+    </svg>
+  );
+}
+
 function IconTemplates({ className }: { className?: string }) {
   return (
     <svg
@@ -529,14 +564,93 @@ function IconMenu({ className }: { className?: string }) {
   );
 }
 
+// Carrossel de cards em destaque (banners tipo anúncio) no topo do Início.
+// Com 1 card só, mostra ele parado, sem bolinhas nem troca automática.
+// Com 2+ cards, passa sozinho a cada 5s e mostra bolinhas de navegação.
+//
+// MEDIDAS RECOMENDADAS PRA ARTE DO CARD (pra criar o template de anúncio):
+// - Proporção: 16:9 (retrato de vídeo/aula)
+// - Exportar em: 1200 x 675 px (nitidez boa em qualquer tela, inclusive retina)
+// - Área central e inferior: evite texto importante nos 25% inferiores da
+//   imagem, porque um gradiente escuro cobre essa faixa pra dar espaço ao
+//   título. O card em si já escreve o título por cima — a imagem pode ser
+//   só a arte/foto, sem precisar embutir o texto na imagem.
+// - Formato de arquivo: JPG ou WEBP, até ~300kb por imagem pra carregar rápido.
+function CardDestaqueCarrossel({ cards }: { cards: CardDestaque[] }) {
+  const [indice, setIndice] = useState(0);
+
+  useEffect(() => {
+    if (cards.length <= 1) return;
+    const t = setInterval(() => {
+      setIndice((i) => (i + 1) % cards.length);
+    }, 5000);
+    return () => clearInterval(t);
+  }, [cards.length]);
+
+  if (cards.length === 0) return null;
+
+  return (
+    <div className="destaque-carrossel">
+      <div
+        className="destaque-track"
+        style={{
+          width: `${cards.length * 100}%`,
+          transform: `translateX(-${(100 / cards.length) * indice}%)`,
+        }}
+      >
+        {cards.map((c) => (
+          <button
+            key={c.id}
+            className="destaque-slide"
+            style={{ width: `${100 / cards.length}%` }}
+            onClick={c.aoClicar}
+          >
+            {c.imagem ? (
+              <img src={c.imagem} alt={c.titulo} className="destaque-slide-img" />
+            ) : (
+              <div className="destaque-slide-fallback" />
+            )}
+            <div className="destaque-slide-overlay">
+              <div className="destaque-slide-titulo">{c.titulo}</div>
+              {c.subtitulo && <div className="destaque-slide-subtitulo">{c.subtitulo}</div>}
+            </div>
+          </button>
+        ))}
+      </div>
+      {cards.length > 1 && (
+        <div className="destaque-dots">
+          {cards.map((c, i) => (
+            <span key={c.id} className={"destaque-dot " + (i === indice ? "active" : "")} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------------------------- Início (Dashboard) ---------------------------- */
+
+// Cards em destaque no topo do Início, estilo thumbnail/banner de anúncio.
+// Hoje só tem o card da Central de Treinamentos, mas o componente já é um
+// carrossel: se quiser rodar vários cards (ex: 5 banners de campanha
+// diferentes) passando automaticamente, é só adicionar mais itens aqui.
+// Medidas recomendadas pra criar a arte de cada card: ver CardDestaqueCarrossel abaixo.
+type CardDestaque = {
+  id: string;
+  imagem?: string; // se vazio, mostra um banner de fallback com gradiente
+  titulo: string;
+  subtitulo?: string;
+  aoClicar: () => void;
+};
 
 function TabInicio({
   ativo,
   onCompletarCadastro,
+  onIrParaTreinamentos,
 }: {
   ativo: boolean;
   onCompletarCadastro: (clienteId: string) => void;
+  onIrParaTreinamentos: () => void;
 }) {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -649,6 +763,7 @@ function TabInicio({
       );
       return diffDias <= JANELA_ANIVERSARIO_DIAS;
     })
+    .filter(({ cliente: c, proxima }) => !jaAvisadoParaEstaOcorrencia(c.aniversarioAvisadoEm, proxima))
     .sort((a, b) => a.proxima.getTime() - b.proxima.getTime())
     .map(({ cliente: c, proxima }) => ({
       id: `aniversario-${c.id}`,
@@ -673,12 +788,12 @@ function TabInicio({
     if (!pessoaA || !pessoaB) return [];
 
     const direcoes = [
-      { aniversariante: pessoaA, notificar: pessoaB },
-      { aniversariante: pessoaB, notificar: pessoaA },
+      { aniversariante: pessoaA, notificar: pessoaB, lado: "a" as const },
+      { aniversariante: pessoaB, notificar: pessoaA, lado: "b" as const },
     ];
 
     const tarefasDoVinculo: Tarefa[] = [];
-    for (const { aniversariante, notificar } of direcoes) {
+    for (const { aniversariante, notificar, lado } of direcoes) {
       if (!aniversariante.aniversarioDia || !aniversariante.aniversarioMes) continue;
       if (!notificar.telefone) continue;
       const proxima = proximaOcorrenciaAniversario(
@@ -690,6 +805,8 @@ function TabInicio({
         (inicioDoDia(proxima).getTime() - inicioDoDia(agora).getTime()) / 86400000
       );
       if (diffDias > JANELA_PRESENTE_VINCULADO_DIAS) continue;
+      const avisadoEm = lado === "a" ? r.presenteAvisadoAEm : r.presenteAvisadoBEm;
+      if (jaAvisadoParaEstaOcorrencia(avisadoEm, proxima)) continue;
       tarefasDoVinculo.push({
         id: `presente-vinculado-${r.id}-${aniversariante.id}`,
         tipo: "presente_vinculado" as const,
@@ -703,6 +820,8 @@ function TabInicio({
           primeiroNome(aniversariante.nome),
           templates
         ),
+        relacionamentoId: r.id,
+        ladoVinculo: lado,
       });
     }
     return tarefasDoVinculo;
@@ -915,6 +1034,10 @@ function TabInicio({
         setClientes(await marcarInatividadeContatada(t.clienteId));
       } else if (t.tipo === "pedir_aniversario") {
         setClientes(await marcarAniversarioPedido(t.clienteId));
+      } else if (t.tipo === "aniversario") {
+        setClientes(await marcarAniversarioAvisado(t.clienteId));
+      } else if (t.tipo === "presente_vinculado" && t.relacionamentoId && t.ladoVinculo) {
+        setRelacionamentos(await marcarPresenteVinculadoAvisado(t.relacionamentoId, t.ladoVinculo));
       } else {
         setDispensados((prev) => new Set(prev).add(t.id));
       }
@@ -933,8 +1056,20 @@ function TabInicio({
     setModeloSelecionado(t.tipo);
   }
 
+  const cardsDestaque: CardDestaque[] = [
+    {
+      id: "central-treinamentos",
+      titulo: "Central de Treinamentos",
+      subtitulo: "Aulas pra vender melhor",
+      aoClicar: onIrParaTreinamentos,
+      // imagem: "https://.../central-treinamentos.jpg", — troque aqui quando tiver a arte
+    },
+  ];
+
   return (
     <div>
+      <CardDestaqueCarrossel cards={cardsDestaque} />
+
       <div className="page-header">
         <h1>Início</h1>
         <p>Resumo rápido do seu negócio.</p>
@@ -2610,6 +2745,7 @@ function TabClientes({
                   temFilhos: null,
                   inatividadeContatadaEm: null,
                   aniversarioPedido: false,
+                  aniversarioAvisadoEm: null,
                 })
               }
             >
@@ -5489,6 +5625,50 @@ function TabMateriais({ ativo }: { ativo: boolean }) {
   );
 }
 
+/* ---------------------------- Central de Treinamentos ---------------------------- */
+
+// Aulas da central de treinamentos. Cada aula é {titulo, url, descricao?}.
+// Por enquanto vazio (sem nenhuma aula publicada ainda) — assim que a
+// primeira aula estiver pronta, é só adicionar um item aqui, ex:
+// { titulo: "Aula 1 — Introdução", url: "https://...", descricao: "12 min" }
+const AULAS_TREINAMENTO: { titulo: string; url: string; descricao?: string }[] = [];
+
+function TabTreinamentos() {
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Central de Treinamentos</h1>
+        <p>Aulas pra aprender e vender melhor os produtos Ozonteck.</p>
+      </div>
+
+      {AULAS_TREINAMENTO.length === 0 ? (
+        <div className="empty-state">
+          <div className="title">Nenhuma aula publicada ainda</div>
+          Assim que a primeira aula estiver pronta, o link aparece aqui.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {AULAS_TREINAMENTO.map((aula, i) => (
+            <a
+              key={i}
+              className="row-card"
+              href={aula.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <div className="row-card-media-placeholder">▶</div>
+              <div className="row-card-body">
+                <div className="row-card-title">{aula.titulo}</div>
+                {aula.descricao && <div className="row-card-sub">{aula.descricao}</div>}
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TabTemplates() {
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
@@ -6251,6 +6431,7 @@ const TABS_MENU = [
   { id: "campanha", label: "Campanha", Icon: IconCampanha },
   { id: "catalogo", label: "Catálogo", Icon: IconCatalogo },
   { id: "materiais", label: "Materiais", Icon: IconMateriais },
+  { id: "treinamentos", label: "Treinamentos", Icon: IconTreinamentos },
   { id: "templates", label: "Templates", Icon: IconTemplates },
   // Aba "Áudios" oculta a pedido do usuário (2026-08-15) — não removida do
   // código, só tirada do menu, pra poder reativar rápido se decidir usar
@@ -6370,6 +6551,7 @@ function PainelShell() {
                 setClienteEditarId(clienteId);
                 irParaAba("clientes");
               }}
+              onIrParaTreinamentos={() => irParaAba("treinamentos")}
             />
           </div>
         )}
@@ -6430,6 +6612,11 @@ function PainelShell() {
         {abasVisitadas.has("materiais") && (
           <div style={{ display: aba === "materiais" ? "block" : "none" }}>
             <TabMateriais ativo={aba === "materiais"} />
+          </div>
+        )}
+        {abasVisitadas.has("treinamentos") && (
+          <div style={{ display: aba === "treinamentos" ? "block" : "none" }}>
+            <TabTreinamentos />
           </div>
         )}
         {abasVisitadas.has("templates") && (
