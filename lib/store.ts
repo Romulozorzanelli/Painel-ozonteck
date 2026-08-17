@@ -100,6 +100,7 @@ export type Cliente = {
   temFilhos: boolean | null;
   inatividadeContatadaEm: string | null;
   aniversarioPedido: boolean;
+  aniversarioAvisadoEm: string | null;
 };
 
 export type ItemVenda = {
@@ -183,6 +184,7 @@ function clienteFromRow(row: any): Cliente {
     temFilhos: row.tem_filhos ?? null,
     inatividadeContatadaEm: row.inatividade_contatada_em ?? null,
     aniversarioPedido: row.aniversario_pedido ?? false,
+    aniversarioAvisadoEm: row.aniversario_avisado_em ?? null,
   };
 }
 
@@ -838,6 +840,19 @@ export async function marcarBoasVindasContatado(id: string): Promise<Cliente[]> 
   return getClientes();
 }
 
+// Marca a tarefa de aniversário desse cliente como feita. Fica salvo no banco
+// (antes só existia em memória, então sumia ao recarregar a página e a
+// tarefa voltava a aparecer mesmo já concluída). A tarefa some até o
+// aniversário seguinte, ano que vem.
+export async function marcarAniversarioAvisado(id: string): Promise<Cliente[]> {
+  const supabase = createClient();
+  await supabase
+    .from("clientes")
+    .update({ aniversario_avisado_em: new Date().toISOString() })
+    .eq("id", id);
+  return getClientes();
+}
+
 /* ---------------------------- Financeiro ---------------------------- */
 
 export async function getFinanceiro(): Promise<Lancamento[]> {
@@ -1256,6 +1271,8 @@ export type Relacionamento = {
   clienteIdB: string;
   tipoRelacao: string;
   criadoEm: string;
+  presenteAvisadoAEm: string | null;
+  presenteAvisadoBEm: string | null;
 };
 
 // tipoRelacao descreve o que clienteIdB e em relacao a clienteIdA.
@@ -1286,6 +1303,8 @@ function relacionamentoFromRow(row: any): Relacionamento {
     clienteIdB: row.cliente_id_b,
     tipoRelacao: row.tipo_relacao,
     criadoEm: row.criado_em,
+    presenteAvisadoAEm: row.presente_avisado_a_em ?? null,
+    presenteAvisadoBEm: row.presente_avisado_b_em ?? null,
   };
 }
 
@@ -1318,5 +1337,22 @@ export async function criarRelacionamento(
 export async function removerRelacionamento(id: string): Promise<Relacionamento[]> {
   const supabase = createClient();
   await supabase.from("relacionamentos_clientes").delete().eq("id", id);
+  return getRelacionamentos();
+}
+
+// Marca a tarefa de "presente pra vínculo" como feita, do lado certo do
+// relacionamento (lado "a" = aviso sobre o aniversário do cliente_id_a,
+// mandado pro cliente_id_b, e vice-versa). Fica salvo no banco, então não
+// volta a aparecer depois de recarregar a página.
+export async function marcarPresenteVinculadoAvisado(
+  id: string,
+  lado: "a" | "b"
+): Promise<Relacionamento[]> {
+  const supabase = createClient();
+  const coluna = lado === "a" ? "presente_avisado_a_em" : "presente_avisado_b_em";
+  await supabase
+    .from("relacionamentos_clientes")
+    .update({ [coluna]: new Date().toISOString() })
+    .eq("id", id);
   return getRelacionamentos();
 }
