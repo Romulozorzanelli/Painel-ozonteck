@@ -571,10 +571,10 @@ function IconMenu({ className }: { className?: string }) {
 // MEDIDAS RECOMENDADAS PRA ARTE DO CARD (pra criar o template de anúncio):
 // - Proporção: 16:9 (retrato de vídeo/aula)
 // - Exportar em: 1200 x 675 px (nitidez boa em qualquer tela, inclusive retina)
-// - Área central e inferior: evite texto importante nos 25% inferiores da
-//   imagem, porque um gradiente escuro cobre essa faixa pra dar espaço ao
-//   título. O card em si já escreve o título por cima — a imagem pode ser
-//   só a arte/foto, sem precisar embutir o texto na imagem.
+// - Como a imagem aqui já é a peça pronta (criativo com texto embutido), o
+//   card NÃO escreve nada por cima dela — só usa "titulo" como texto
+//   alternativo (acessibilidade) e, se tiver "badge", mostra uma tag pequena
+//   no canto superior (ex: "Em breve").
 // - Formato de arquivo: JPG ou WEBP, até ~300kb por imagem pra carregar rápido.
 function CardDestaqueCarrossel({ cards }: { cards: CardDestaque[] }) {
   const [indice, setIndice] = useState(0);
@@ -598,24 +598,32 @@ function CardDestaqueCarrossel({ cards }: { cards: CardDestaque[] }) {
           transform: `translateX(-${(100 / cards.length) * indice}%)`,
         }}
       >
-        {cards.map((c) => (
-          <button
-            key={c.id}
-            className="destaque-slide"
-            style={{ width: `${100 / cards.length}%` }}
-            onClick={c.aoClicar}
-          >
-            {c.imagem ? (
-              <img src={c.imagem} alt={c.titulo} className="destaque-slide-img" />
-            ) : (
-              <div className="destaque-slide-fallback" />
-            )}
-            <div className="destaque-slide-overlay">
-              <div className="destaque-slide-titulo">{c.titulo}</div>
-              {c.subtitulo && <div className="destaque-slide-subtitulo">{c.subtitulo}</div>}
-            </div>
-          </button>
-        ))}
+        {cards.map((c) => {
+          const Slide = c.aoClicar ? "button" : "div";
+          return (
+            <Slide
+              key={c.id}
+              className={"destaque-slide" + (c.aoClicar ? "" : " destaque-slide-inerte")}
+              style={{ width: `${100 / cards.length}%` }}
+              onClick={c.aoClicar}
+            >
+              {c.imagem ? (
+                <img src={c.imagem} alt={c.titulo} className="destaque-slide-img" />
+              ) : (
+                <div className="destaque-slide-fallback" />
+              )}
+              {/* Com imagem própria (criativo pronto), não repete título por
+                  cima — só o fallback sem imagem mostra texto escrito. */}
+              {!c.imagem && (
+                <div className="destaque-slide-overlay">
+                  <div className="destaque-slide-titulo">{c.titulo}</div>
+                  {c.subtitulo && <div className="destaque-slide-subtitulo">{c.subtitulo}</div>}
+                </div>
+              )}
+              {c.badge && <div className="destaque-badge">{c.badge}</div>}
+            </Slide>
+          );
+        })}
       </div>
       {cards.length > 1 && (
         <div className="destaque-dots">
@@ -638,9 +646,10 @@ function CardDestaqueCarrossel({ cards }: { cards: CardDestaque[] }) {
 type CardDestaque = {
   id: string;
   imagem?: string; // se vazio, mostra um banner de fallback com gradiente
-  titulo: string;
+  titulo: string; // usado como alt da imagem; só aparece escrito no card se não tiver imagem (fallback)
   subtitulo?: string;
-  aoClicar: () => void;
+  badge?: string; // tag pequena no canto, ex: "Em breve"
+  aoClicar?: () => void; // se ausente, o card só exibe a imagem, sem ser clicável
 };
 
 function TabInicio({
@@ -1060,9 +1069,26 @@ function TabInicio({
     {
       id: "central-treinamentos",
       titulo: "Central de Treinamentos",
-      subtitulo: "Aulas pra vender melhor",
+      imagem:
+        "https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/materiais-apoio/anuncio1-afiliados20h.jpg",
       aoClicar: onIrParaTreinamentos,
-      // imagem: "https://.../central-treinamentos.jpg", — troque aqui quando tiver a arte
+    },
+    {
+      id: "encontro-afiliados-20h",
+      titulo: "Encontro para novos Afiliados às 20h de Brasília",
+      imagem:
+        "https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/materiais-apoio/anuncio1-afiliados20h.jpg",
+      aoClicar: () =>
+        window.open("https://meet.google.com/ibc-vpmb-ygw", "_blank", "noopener,noreferrer"),
+    },
+    {
+      id: "imersao-vitoria",
+      titulo: "Imersão Time Avance em Vitória/ES",
+      imagem:
+        "https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/materiais-apoio/anuncio3-imersao.jpg",
+      badge: "Em breve",
+      // Sem aoClicar de propósito: ainda não tem data/link, então o card só
+      // mostra a imagem, sem ser clicável.
     },
   ];
 
