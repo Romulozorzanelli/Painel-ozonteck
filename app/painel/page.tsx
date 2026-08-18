@@ -1080,7 +1080,7 @@ function TabInicio({
       id: "central-treinamentos",
       titulo: "Central de Treinamentos",
       imagem:
-        "https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/materiais-apoio/anuncio1-afiliados20h.jpg",
+        "https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/materiais-apoio/anuncio1-treinamento.jpg",
       aoClicar: onIrParaTreinamentos,
     },
     {
