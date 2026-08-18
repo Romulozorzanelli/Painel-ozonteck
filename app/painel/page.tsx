@@ -569,12 +569,12 @@ function IconMenu({ className }: { className?: string }) {
 // Com 2+ cards, passa sozinho a cada 5s e mostra bolinhas de navegação.
 //
 // MEDIDAS RECOMENDADAS PRA ARTE DO CARD (pra criar o template de anúncio):
-// - Proporção: 16:9 (retrato de vídeo/aula)
-// - Exportar em: 1200 x 675 px (nitidez boa em qualquer tela, inclusive retina)
-// - Como a imagem aqui já é a peça pronta (criativo com texto embutido), o
-//   card NÃO escreve nada por cima dela — só usa "titulo" como texto
-//   alternativo (acessibilidade) e, se tiver "badge", mostra uma tag pequena
-//   no canto superior (ex: "Em breve").
+// - O quadro do card é sempre 16:9, mas a imagem NUNCA é cortada: ela
+//   aparece inteira, centralizada, com um fundo desfocado da própria arte
+//   preenchendo o espaço ao redor. Então pode usar qualquer proporção
+//   (retrato, quadrado, paisagem) que nada fica cortado.
+// - Ainda assim, o ideal pra aproveitar o quadro sem sobrar muita área de
+//   fundo desfocado é uma arte próxima de 16:9 — ex: 1200 x 675 px.
 // - Formato de arquivo: JPG ou WEBP, até ~300kb por imagem pra carregar rápido.
 function CardDestaqueCarrossel({ cards }: { cards: CardDestaque[] }) {
   const [indice, setIndice] = useState(0);
@@ -608,7 +608,17 @@ function CardDestaqueCarrossel({ cards }: { cards: CardDestaque[] }) {
               onClick={c.aoClicar}
             >
               {c.imagem ? (
-                <img src={c.imagem} alt={c.titulo} className="destaque-slide-img" />
+                <>
+                  {/* Fundo desfocado da própria imagem, pra preencher o
+                      quadro 16:9 sem esticar nem cortar a arte de verdade
+                      quando a proporção original é diferente. */}
+                  <div
+                    className="destaque-slide-bg"
+                    style={{ backgroundImage: `url(${c.imagem})` }}
+                    aria-hidden="true"
+                  />
+                  <img src={c.imagem} alt={c.titulo} className="destaque-slide-img" />
+                </>
               ) : (
                 <div className="destaque-slide-fallback" />
               )}
@@ -1086,9 +1096,9 @@ function TabInicio({
       titulo: "Imersão Time Avance em Vitória/ES",
       imagem:
         "https://ghqsqqegblhseocxmwwx.supabase.co/storage/v1/object/public/materiais-apoio/anuncio3-imersao.jpg",
-      badge: "Em breve",
-      // Sem aoClicar de propósito: ainda não tem data/link, então o card só
-      // mostra a imagem, sem ser clicável.
+      // Sem badge: a própria arte já traz "Em breve" escrito. Sem aoClicar
+      // de propósito: ainda não tem data/link, então o card só mostra a
+      // imagem, sem ser clicável.
     },
   ];
 
