@@ -80,8 +80,9 @@ function montarMensagemPedido(venda: Venda): string {
   const saudacao = venda.clienteNome && venda.clienteNome !== "Cliente avulso"
     ? `Olá, ${primeiroNome(venda.clienteNome)}! 👋`
     : "Olá! 👋";
+  const linhaDesconto = venda.desconto > 0 ? `Desconto: - ${currency(venda.desconto)}\n` : "";
   return (
-    `${saudacao}\n\nAqui está o resumo do seu pedido:\n\n${itens}\n\n` +
+    `${saudacao}\n\nAqui está o resumo do seu pedido:\n\n${itens}\n\n${linhaDesconto}` +
     `Total: ${currency(venda.total)}\n\nObrigado pela preferência! 💙`
   );
 }
@@ -3487,6 +3488,7 @@ function TabVendas({
   );
   const [clienteAvulso, setClienteAvulso] = useState("");
   const [formaPagamento, setFormaPagamento] = useState("Pix");
+  const [desconto, setDesconto] = useState<number | "">("");
   const [dividirPagamento, setDividirPagamento] = useState(false);
   const [formaPagamento2, setFormaPagamento2] = useState("Dinheiro");
   const [valorPagamento1, setValorPagamento1] = useState<number | "">("");
@@ -3682,6 +3684,7 @@ function TabVendas({
       setValorPagamento1("");
       setValorPagamento2("");
     }
+    setDesconto(v.desconto > 0 ? v.desconto : "");
     setLembreteCobranca(v.lembreteCobranca ?? "");
     setEtapaVenda("produtos");
     setRevendedor(v.tipoVenda === "revendedor");
@@ -3702,6 +3705,7 @@ function TabVendas({
     setFormaPagamento2("Dinheiro");
     setValorPagamento1("");
     setValorPagamento2("");
+    setDesconto("");
     setLembreteCobranca("");
     setEtapaVenda("produtos");
     setRevendedor(false);
@@ -3710,10 +3714,16 @@ function TabVendas({
     setNovoClienteTelefone("");
   }
 
-  const totalCarrinho = carrinho.reduce(
+  const subtotalCarrinho = carrinho.reduce(
     (s, i) => s + i.quantidade * i.precoUnitario,
     0
   );
+  // Desconto de valor (R$), nunca negativo nem maior que o subtotal.
+  const descontoValor = Math.min(
+    Math.max(desconto === "" ? 0 : desconto, 0),
+    subtotalCarrinho
+  );
+  const totalCarrinho = Math.max(subtotalCarrinho - descontoValor, 0);
   const somaPagamentoDividido =
     (valorPagamento1 === "" ? 0 : valorPagamento1) + (valorPagamento2 === "" ? 0 : valorPagamento2);
   const pagamentoDivididoValido =
@@ -3871,6 +3881,15 @@ function TabVendas({
                   <span>{currency(i.quantidade * i.precoUnitario)}</span>
                 </div>
               ))}
+              {detalhes.desconto > 0 && (
+                <div
+                  className="cart-line"
+                  style={{ marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--border)" }}
+                >
+                  <span style={{ color: "var(--muted)" }}>Desconto</span>
+                  <span style={{ color: "var(--muted)" }}>- {currency(detalhes.desconto)}</span>
+                </div>
+              )}
               <div
                 style={{
                   display: "flex",
@@ -4391,6 +4410,37 @@ function TabVendas({
 
               {etapaVenda === "pagamento" && (
                 <>
+                  <div className="form-row">
+                    <label>Desconto (R$, opcional)</label>
+                    <input
+                      className="text-input"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      placeholder="0,00"
+                      value={desconto}
+                      onChange={(e) => {
+                        const valor = e.target.value === "" ? "" : Number(e.target.value);
+                        setDesconto(valor);
+                        // Se estiver dividindo o pagamento, reajusta a 1ª forma
+                        // pra continuar batendo com o novo total.
+                        if (dividirPagamento) {
+                          const novoDesconto = Math.min(
+                            Math.max(valor === "" ? 0 : valor, 0),
+                            subtotalCarrinho
+                          );
+                          setValorPagamento1(Math.max(subtotalCarrinho - novoDesconto - (valorPagamento2 === "" ? 0 : valorPagamento2), 0));
+                        }
+                      }}
+                    />
+                    {descontoValor > 0 && (
+                      <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginTop: 4 }}>
+                        Subtotal {currency(subtotalCarrinho)} · Desconto {currency(descontoValor)} · Total{" "}
+                        {currency(totalCarrinho)}
+                      </p>
+                    )}
+                  </div>
+
                   {!dividirPagamento ? (
                     <div className="form-row">
                       <label>Forma de pagamento</label>
@@ -4521,19 +4571,46 @@ function TabVendas({
 
             <div className="sheet-full-footer">
               {carrinho.length > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: "0.82rem",
-                    color: "var(--muted)",
-                    marginBottom: 8,
-                  }}
-                >
-                  <span>Total</span>
-                  <span style={{ color: "var(--text)", fontWeight: 700 }}>
-                    {currency(totalCarrinho)}
-                  </span>
+                <div style={{ marginBottom: 8 }}>
+                  {descontoValor > 0 && (
+                    <>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          fontSize: "0.78rem",
+                          color: "var(--muted)",
+                        }}
+                      >
+                        <span>Subtotal</span>
+                        <span>{currency(subtotalCarrinho)}</span>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          fontSize: "0.78rem",
+                          color: "var(--muted)",
+                        }}
+                      >
+                        <span>Desconto</span>
+                        <span>- {currency(descontoValor)}</span>
+                      </div>
+                    </>
+                  )}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: "0.82rem",
+                      color: "var(--muted)",
+                    }}
+                  >
+                    <span>Total</span>
+                    <span style={{ color: "var(--text)", fontWeight: 700 }}>
+                      {currency(totalCarrinho)}
+                    </span>
+                  </div>
                 </div>
               )}
               <div className="form-actions">
@@ -4579,6 +4656,7 @@ function TabVendas({
                         clienteId: cliente ? cliente.id : null,
                         clienteNome: cliente ? cliente.nome : clienteAvulso.trim() || "Cliente avulso",
                         itens: carrinho,
+                        desconto: descontoValor,
                         formaPagamento: dividirPagamento
                           ? `${formaPagamento} + ${formaPagamento2}`
                           : formaPagamento,
