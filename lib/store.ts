@@ -121,6 +121,7 @@ export type Venda = {
   clienteId: string | null;
   clienteNome: string;
   itens: ItemVenda[];
+  desconto: number;
   total: number;
   formaPagamento: string;
   pagamentos: PagamentoDividido[] | null;
@@ -194,6 +195,7 @@ function vendaFromRow(row: any): Venda {
     data: row.data,
     clienteId: row.cliente_id,
     clienteNome: row.cliente_nome,
+    desconto: Number(row.desconto ?? 0),
     total: Number(row.total),
     formaPagamento: row.forma_pagamento,
     pagamentos: row.pagamentos ?? null,
@@ -511,19 +513,24 @@ export async function registrarVenda(input: {
   clienteId: string | null;
   clienteNome: string;
   itens: ItemVenda[];
+  desconto?: number;
   formaPagamento: string;
   pagamentos?: PagamentoDividido[] | null;
   tipoVenda: "cliente" | "revendedor";
   lembreteCobranca?: string | null;
 }) {
   const supabase = createClient();
-  const total = input.itens.reduce((sum, i) => sum + i.quantidade * i.precoUnitario, 0);
+  const subtotal = input.itens.reduce((sum, i) => sum + i.quantidade * i.precoUnitario, 0);
+  // Nunca deixa o desconto ficar negativo nem passar do subtotal.
+  const desconto = Math.min(Math.max(input.desconto ?? 0, 0), subtotal);
+  const total = subtotal - desconto;
 
   const { data: venda, error } = await supabase
     .from("vendas")
     .insert({
       cliente_id: input.clienteId,
       cliente_nome: input.clienteNome || "Cliente avulso",
+      desconto,
       total,
       forma_pagamento: input.formaPagamento,
       pagamentos: input.pagamentos ?? null,
@@ -569,6 +576,7 @@ export async function atualizarVenda(
     clienteId: string | null;
     clienteNome: string;
     itens: ItemVenda[];
+    desconto?: number;
     formaPagamento: string;
     pagamentos?: PagamentoDividido[] | null;
     tipoVenda: "cliente" | "revendedor";
@@ -599,13 +607,16 @@ export async function atualizarVenda(
 
   await supabase.from("venda_itens").delete().eq("venda_id", vendaId);
 
-  const total = input.itens.reduce((sum, i) => sum + i.quantidade * i.precoUnitario, 0);
+  const subtotal = input.itens.reduce((sum, i) => sum + i.quantidade * i.precoUnitario, 0);
+  const desconto = Math.min(Math.max(input.desconto ?? 0, 0), subtotal);
+  const total = subtotal - desconto;
 
   await supabase
     .from("vendas")
     .update({
       cliente_id: input.clienteId,
       cliente_nome: input.clienteNome || "Cliente avulso",
+      desconto,
       total,
       forma_pagamento: input.formaPagamento,
       pagamentos: input.pagamentos ?? null,
